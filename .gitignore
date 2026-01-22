@@ -8,17 +8,17 @@
 ############################
 # DOTNET (backend)
 ############################
-backend/bin/
-backend/obj/
-backend/.vs/
-backend/*.user
-backend/*.suo
-backend/*.cache
-backend/*.log
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/*.suo
+**/*.cache
+**/*.log
 
 # ASP.NET Core
-backend/appsettings.Development.json
-backend/appsettings.Local.json
+**/appsettings.Development.json
+**/appsettings.Local.json
 
 ############################
 # NEXT.JS (frontend)
