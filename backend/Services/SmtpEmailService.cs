@@ -1,6 +1,10 @@
+using backend.Interfaces;
+
+namespace backend.Services;
+
 using System.Net;
 using System.Net.Mail;
-using backend.Models;
+using Models;
 using Microsoft.Extensions.Options;
 
 public class SmtpEmailService : IEmailService

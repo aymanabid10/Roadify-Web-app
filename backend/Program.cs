@@ -1,4 +1,6 @@
+using backend.Interfaces;
 using backend.Models;
+using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +12,6 @@ builder.Services.Configure<EmailSettings>(
     builder.Configuration.GetSection("EmailSettings"));
 
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
-
 
 var app = builder.Build();
 
