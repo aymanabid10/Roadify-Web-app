@@ -230,21 +230,15 @@ public class AuthService(
     {
         var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
         var encodedToken = Uri.EscapeDataString(token);
-        var frontendUrl = configuration["FrontendUrl"] ?? "http://localhost:3000";
+        var frontendUrl = configuration["FrontendUrl"];
         var confirmationLink = $"{frontendUrl}/auth/confirm-email?userId={user.Id}&token={encodedToken}";
 
-        var htmlBody = $"""
-                        <h2>Welcome to Roadify!</h2>
-                        <p>Hi {user.UserName},</p>
-                        <p>Please confirm your email address by clicking the link below:</p>
-                        <p><a href="{confirmationLink}" style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; border-radius: 4px;">Confirm Email</a></p>
-                        <p>Or copy and paste this link into your browser:</p>
-                        <p>{confirmationLink}</p>
-                        <p>This link will expire in 24 hours.</p>
-                        <p>If you didn't create an account, you can safely ignore this email.</p>
-                        <br>
-                        <p>Best regards,<br>The Roadify Team</p>
-                        """;
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "confirm-email.html");
+        var htmlTemplate = await File.ReadAllTextAsync(templatePath, cancellationToken);
+        
+        var htmlBody = htmlTemplate
+            .Replace("{UserName}", user.UserName)
+            .Replace("{ConfirmationLink}", confirmationLink);
 
         await emailService.SendAsync(
             user.Email!,
