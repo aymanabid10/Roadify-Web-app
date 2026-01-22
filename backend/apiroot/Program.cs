@@ -74,6 +74,13 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
+// Validate JWT key length at startup
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrEmpty(jwtKey) || Encoding.UTF8.GetBytes(jwtKey).Length < 32)
+{
+    throw new InvalidOperationException("JWT Key must be at least 256 bits (32 characters) for HMAC-SHA256");
+}
+
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -93,7 +100,8 @@ builder.Services.AddAuthentication(options =>
             ValidAudience = jwtSettings?.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings?.Key ?? string.Empty)),
             RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
-            NameClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
+            NameClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+            ClockSkew = TimeSpan.Zero
         };
     });
 
@@ -164,14 +172,17 @@ async Task SeedAdminUserAsync(UserManager<IdentityUser> userManager)
         };
 
         var password = builder.Configuration.GetSection("AdminPassword").Value;
-        if (password != null)
+        if (string.IsNullOrEmpty(password))
         {
-            var result = await userManager.CreateAsync(admin, password);
-            if (result.Succeeded)
-            {
-                await userManager.AddToRoleAsync(admin, "ADMIN");
-                await userManager.AddToRoleAsync(admin, "USER");
-            }
+            app.Logger.LogWarning("AdminPassword not configured. Admin user will not be created.");
+            return;
+        }
+        
+        var result = await userManager.CreateAsync(admin, password);
+        if (result.Succeeded)
+        {
+            await userManager.AddToRoleAsync(admin, "ADMIN");
+            await userManager.AddToRoleAsync(admin, "USER");
         }
     }
 }

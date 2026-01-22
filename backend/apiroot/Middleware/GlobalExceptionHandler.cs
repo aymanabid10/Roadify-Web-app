@@ -34,16 +34,16 @@ public class GlobalExceptionHandler
 
         var (statusCode, message) = exception switch
         {
-            InvalidOperationException => (HttpStatusCode.BadRequest, exception.Message),
+            InvalidOperationException => (HttpStatusCode.BadRequest, "The request could not be processed"),
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized access"),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found"),
-            ArgumentException => (HttpStatusCode.BadRequest, exception.Message),
+            ArgumentException => (HttpStatusCode.BadRequest, "Invalid request"),
             _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred")
         };
 
         context.Response.StatusCode = (int)statusCode;
 
-        var response = new ErrorResponse(message, context.Response.StatusCode, exception.Message);
+        var response = new ErrorResponse(message, context.Response.StatusCode, null);
 
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
         {
