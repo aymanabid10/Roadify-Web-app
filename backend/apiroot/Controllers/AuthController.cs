@@ -70,12 +70,37 @@ public class AuthController(
     }
 
     [HttpPost("resend-confirmation")]
+    [EnableRateLimiting("EmailRateLimit")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ResendEmailConfirmation([FromBody] ResendEmailRequest request, CancellationToken cancellationToken)
     {
         await authService.ResendEmailConfirmationAsync(request, cancellationToken);
         // Always return success to prevent email enumeration
         return Ok(new { message = "If your email is registered and not confirmed, you will receive a confirmation email shortly" });
+    }
+
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("EmailRateLimit")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await authService.ForgotPasswordAsync(request, cancellationToken);
+        // Always return success to prevent email enumeration
+        return Ok(new { message = "If your email is registered, you will receive a password reset link shortly" });
+    }
+
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await authService.ResetPasswordAsync(request, cancellationToken);
+        logger.LogInformation("Password reset for user {UserId}", request.UserId);
+        return Ok(new { message = "Password has been reset successfully" });
     }
 }
