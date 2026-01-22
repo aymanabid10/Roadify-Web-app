@@ -15,7 +15,7 @@ public class AuthService(
     ApplicationDbContext context,
     ILogger<AuthService> logger) : IAuthService
 {
-    public async Task<AuthResponse> RegisterAsync(RegisterRequest request,
+    public async Task RegisterAsync(RegisterRequest request,
         CancellationToken cancellationToken = default)
     {
         var existingUser = await userManager.FindByNameAsync(request.Username);
@@ -49,16 +49,7 @@ public class AuthService(
         // Send email verification
         await SendEmailConfirmationAsync(user, cancellationToken);
 
-        var roles = await userManager.GetRolesAsync(user);
-        var accessToken = tokenService.GenerateAccessToken(user.Id, user.UserName, roles);
-        var refreshToken = tokenService.GenerateRefreshToken();
-
-        await StoreRefreshTokenAsync(user.Id, refreshToken, cancellationToken);
-
-        logger.LogInformation("User {Username} registered successfully", user.UserName);
-
-        return new AuthResponse(accessToken, refreshToken, tokenService.GetAccessTokenExpiration(), user.UserName,
-            roles);
+        logger.LogInformation("User {Username} registered successfully. Awaiting email confirmation.", user.UserName);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -93,8 +84,7 @@ public class AuthService(
 
         logger.LogInformation("User {Username} logged in successfully", user.UserName);
 
-        return new AuthResponse(accessToken, refreshToken, tokenService.GetAccessTokenExpiration(), user.UserName!,
-            roles);
+        return new AuthResponse(accessToken, refreshToken);
     }
 
     public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request,
@@ -104,7 +94,6 @@ public class AuthService(
         
         try
         {
-            // Use pessimistic locking by querying with tracking and immediate update
             var storedToken = await context.RefreshTokens
                 .FirstOrDefaultAsync(t => t.Token == request.RefreshToken && !t.IsRevoked, cancellationToken);
 
@@ -113,7 +102,6 @@ public class AuthService(
                 throw new UnauthorizedAccessException("Invalid or expired refresh token");
             }
 
-            // Mark as revoked immediately to prevent race conditions
             storedToken.IsRevoked = true;
             storedToken.RevokedAt = DateTime.UtcNow;
 
@@ -140,11 +128,9 @@ public class AuthService(
             await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            // Cleanup expired/revoked tokens for this user (fire and forget, non-critical)
             _ = CleanupOldTokensAsync(user.Id);
 
-            return new AuthResponse(accessToken, newRefreshToken, tokenService.GetAccessTokenExpiration(), user.UserName!,
-                roles);
+            return new AuthResponse(accessToken, newRefreshToken);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -179,7 +165,7 @@ public class AuthService(
         return Task.FromResult(principal != null);
     }
 
-    public async Task<bool> ConfirmEmailAsync(ConfirmEmailRequest request,
+    public async Task<AuthResponse> ConfirmEmailAsync(ConfirmEmailRequest request,
         CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByIdAsync(request.UserId);
@@ -188,20 +174,24 @@ public class AuthService(
             throw new KeyNotFoundException("User not found");
         }
 
-        if (user.EmailConfirmed)
+        if (!user.EmailConfirmed)
         {
-            return true; // Already confirmed
+            var result = await userManager.ConfirmEmailAsync(user, request.Token);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Email confirmation failed: {errors}");
+            }
         }
 
-        var result = await userManager.ConfirmEmailAsync(user, request.Token);
-        if (!result.Succeeded)
-        {
-            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            throw new InvalidOperationException($"Email confirmation failed: {errors}");
-        }
+        var roles = await userManager.GetRolesAsync(user);
+        var accessToken = tokenService.GenerateAccessToken(user.Id, user.UserName!, roles);
+        var refreshToken = tokenService.GenerateRefreshToken();
+
+        await StoreRefreshTokenAsync(user.Id, refreshToken, cancellationToken);
 
         logger.LogInformation("Email confirmed for user {Username}", user.UserName);
-        return true;
+        return new AuthResponse(accessToken, refreshToken);
     }
 
     public async Task ResendEmailConfirmationAsync(ResendEmailRequest request,
@@ -210,14 +200,12 @@ public class AuthService(
         var user = await userManager.FindByEmailAsync(request.Email);
         if (user == null)
         {
-            // Don't reveal whether a user exists - just return silently
             logger.LogWarning("Resend email confirmation requested for non-existent email: {Email}", request.Email);
             return;
         }
 
         if (user.EmailConfirmed)
         {
-            // Email already confirmed, no need to resend
             logger.LogInformation("Email already confirmed for user {Username}", user.UserName);
             return;
         }

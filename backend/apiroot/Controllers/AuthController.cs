@@ -12,14 +12,14 @@ public class AuthController(
     ILogger<AuthController> logger) : ControllerBase
 {
     [HttpPost("register")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
-        var response = await authService.RegisterAsync(request, cancellationToken);
-        logger.LogInformation("User {Username} registered", response.Username);
-        return Ok(response);
+        await authService.RegisterAsync(request, cancellationToken);
+        logger.LogInformation("User {Username} registered", request.Username);
+        return Ok(new { message = "Registration successful. Please check your email to confirm your account." });
     }
 
     [HttpPost("login")]
@@ -28,7 +28,7 @@ public class AuthController(
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var response = await authService.LoginAsync(request, cancellationToken);
-        logger.LogInformation("User {Username} logged in", response.Username);
+        logger.LogInformation("User {Username} logged in", request.Username);
         return Ok(response);
     }
 
@@ -59,14 +59,14 @@ public class AuthController(
     }
 
     [HttpPost("confirm-email")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request, CancellationToken cancellationToken)
     {
-        await authService.ConfirmEmailAsync(request, cancellationToken);
+        var response = await authService.ConfirmEmailAsync(request, cancellationToken);
         logger.LogInformation("Email confirmed for user {UserId}", request.UserId);
-        return Ok(new { message = "Email confirmed successfully" });
+        return Ok(response);
     }
 
     [HttpPost("resend-confirmation")]
