@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { ApiError } from "@/lib/api";
@@ -16,7 +15,6 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { RiEyeLine, RiEyeOffLine, RiCheckLine, RiCloseLine, RiMailLine } from "@remixicon/react";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { register } = useAuth();
   
   const [username, setUsername] = useState("");

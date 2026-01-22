@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { authApi, ApiError } from "@/lib/api";
@@ -13,7 +13,6 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { RiCheckLine, RiCloseLine, RiMailLine } from "@remixicon/react";
 
 function ConfirmEmailContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { setAuthFromResponse } = useAuth();
   
@@ -132,8 +131,8 @@ function ConfirmEmailContent() {
       </CardContent>
       
       <CardFooter className="justify-center">
-        <Link href="/dashboard">
-          <Button>Go to dashboard</Button>
+        <Link href="/profile">
+          <Button>Go to profile</Button>
         </Link>
       </CardFooter>
     </Card>

@@ -52,7 +52,7 @@ export default function LoginPage() {
       toast.success("Welcome back!", {
         description: "You have been successfully logged in.",
       });
-      router.push("/dashboard");
+      router.push("/profile");
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 401) {

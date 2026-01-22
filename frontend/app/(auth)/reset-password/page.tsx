@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { authApi, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { RiEyeLine, RiEyeOffLine, RiCheckLine, RiCloseLine, RiLockLine, RiArrowLeftLine } from "@remixicon/react";
 
 function ResetPasswordContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   
   const [password, setPassword] = useState("");
