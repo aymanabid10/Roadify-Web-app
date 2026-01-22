@@ -17,7 +17,7 @@ public class SmtpEmailService(IOptions<EmailSettings> settings) : IEmailService
         string htmlBody,
         CancellationToken cancellationToken = default)
     {
-        var message = new MailMessage
+        using var message = new MailMessage
         {
             From = new MailAddress(_settings.SenderEmail, _settings.SenderName),
             Subject = subject,
