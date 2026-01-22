@@ -32,13 +32,11 @@ public class SmtpEmailService : IEmailService
 
         message.To.Add(to);
 
-        using var client = new SmtpClient(_settings.SmtpServer, _settings.Port)
-        {
-            Credentials = new NetworkCredential(
-                _settings.Username,
-                _settings.Password),
-            EnableSsl = _settings.EnableSsl
-        };
+        using var client = new SmtpClient(_settings.SmtpServer, _settings.Port);
+        client.Credentials = new NetworkCredential(
+            _settings.Username,
+            _settings.Password);
+        client.EnableSsl = _settings.EnableSsl;
 
         await client.SendMailAsync(message, cancellationToken);
     }
