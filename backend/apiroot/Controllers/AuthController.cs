@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using apiroot.DTOs;
 using apiroot.Interfaces;
 
@@ -7,14 +8,17 @@ namespace apiroot.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[EnableRateLimiting("AuthRateLimit")]
 public class AuthController(
     IAuthService authService,
     ILogger<AuthController> logger) : ControllerBase
 {
     [HttpPost("register")]
+    [EnableRateLimiting("EmailRateLimit")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
         await authService.RegisterAsync(request, cancellationToken);
@@ -23,8 +27,10 @@ public class AuthController(
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("LoginRateLimit")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var response = await authService.LoginAsync(request, cancellationToken);
