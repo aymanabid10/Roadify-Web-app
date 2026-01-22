@@ -43,7 +43,7 @@ public class GlobalExceptionHandler
 
         context.Response.StatusCode = (int)statusCode;
 
-        var response = new ErrorResponse(message, context.Response.StatusCode, null);
+        var response = new ErrorResponse(message, context.Response.StatusCode);
 
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
         {
