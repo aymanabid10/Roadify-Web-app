@@ -1,19 +1,12 @@
 namespace apiroot.Models;
 
-public class EmailSettings(
-    string smtpServer,
-    int port,
-    string senderName,
-    string senderEmail,
-    string username,
-    string password,
-    bool enableSsl)
+public class EmailSettings
 {
-    public string SmtpServer { get; set; } = smtpServer;
-    public int Port { get; set; } = port;
-    public string SenderName { get; set; } = senderName;
-    public string SenderEmail { get; set; } = senderEmail;
-    public string Username { get; set; } = username;
-    public string Password { get; set; } = password;
-    public bool EnableSsl { get; set; } = enableSsl;
+    public string SmtpServer { get; set; } = string.Empty;
+    public int Port { get; set; }
+    public string SenderName { get; set; } = string.Empty;
+    public string SenderEmail { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public bool EnableSsl { get; set; }
 }

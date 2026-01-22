@@ -49,4 +49,25 @@ public class AuthController(
     {
         return Ok(new { valid = true, username = User.Identity?.Name });
     }
+
+    [HttpPost("confirm-email")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request, CancellationToken cancellationToken)
+    {
+        await authService.ConfirmEmailAsync(request, cancellationToken);
+        logger.LogInformation("Email confirmed for user {UserId}", request.UserId);
+        return Ok(new { message = "Email confirmed successfully" });
+    }
+
+    [HttpPost("resend-confirmation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResendEmailConfirmation([FromBody] ResendEmailRequest request, CancellationToken cancellationToken)
+    {
+        await authService.ResendEmailConfirmationAsync(request, cancellationToken);
+        // Always return success to prevent email enumeration
+        return Ok(new { message = "If your email is registered and not confirmed, you will receive a confirmation email shortly" });
+    }
 }

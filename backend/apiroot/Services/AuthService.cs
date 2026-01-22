@@ -10,6 +10,8 @@ public class AuthService(
     UserManager<IdentityUser> userManager,
     SignInManager<IdentityUser> signInManager,
     ITokenService tokenService,
+    IEmailService emailService,
+    IConfiguration configuration,
     ApplicationDbContext context,
     ILogger<AuthService> logger) : IAuthService
 {
@@ -43,6 +45,9 @@ public class AuthService(
         }
 
         await userManager.AddToRoleAsync(user, "USER");
+
+        // Send email verification
+        await SendEmailConfirmationAsync(user, cancellationToken);
 
         var roles = await userManager.GetRolesAsync(user);
         var accessToken = tokenService.GenerateAccessToken(user.Id, user.UserName, roles);
@@ -121,6 +126,78 @@ public class AuthService(
     {
         var principal = tokenService.ValidateToken(token);
         return Task.FromResult(principal != null);
+    }
+
+    public async Task<bool> ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(request.UserId);
+        if (user == null)
+        {
+            throw new KeyNotFoundException("User not found");
+        }
+
+        if (user.EmailConfirmed)
+        {
+            return true; // Already confirmed
+        }
+
+        var result = await userManager.ConfirmEmailAsync(user, request.Token);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"Email confirmation failed: {errors}");
+        }
+
+        logger.LogInformation("Email confirmed for user {Username}", user.UserName);
+        return true;
+    }
+
+    public async Task ResendEmailConfirmationAsync(ResendEmailRequest request, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByEmailAsync(request.Email);
+        if (user == null)
+        {
+            // Don't reveal whether a user exists - just return silently
+            logger.LogWarning("Resend email confirmation requested for non-existent email: {Email}", request.Email);
+            return;
+        }
+
+        if (user.EmailConfirmed)
+        {
+            // Email already confirmed, no need to resend
+            logger.LogInformation("Email already confirmed for user {Username}", user.UserName);
+            return;
+        }
+
+        await SendEmailConfirmationAsync(user, cancellationToken);
+        logger.LogInformation("Verification email resent to user {Username}", user.UserName);
+    }
+
+    private async Task SendEmailConfirmationAsync(IdentityUser user, CancellationToken cancellationToken)
+    {
+        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+        var encodedToken = Uri.EscapeDataString(token);
+        var frontendUrl = configuration["FrontendUrl"] ?? "http://localhost:3000";
+        var confirmationLink = $"{frontendUrl}/auth/confirm-email?userId={user.Id}&token={encodedToken}";
+
+        var htmlBody = $"""
+            <h2>Welcome to Roadify!</h2>
+            <p>Hi {user.UserName},</p>
+            <p>Please confirm your email address by clicking the link below:</p>
+            <p><a href="{confirmationLink}" style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; border-radius: 4px;">Confirm Email</a></p>
+            <p>Or copy and paste this link into your browser:</p>
+            <p>{confirmationLink}</p>
+            <p>This link will expire in 24 hours.</p>
+            <p>If you didn't create an account, you can safely ignore this email.</p>
+            <br>
+            <p>Best regards,<br>The Roadify Team</p>
+            """;
+
+        await emailService.SendAsync(
+            user.Email!,
+            "Confirm your email address - Roadify",
+            htmlBody,
+            cancellationToken);
     }
 
     private async Task StoreRefreshTokenAsync(string userId, string token, CancellationToken cancellationToken)
