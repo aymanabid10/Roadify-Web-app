@@ -41,6 +41,14 @@ public class AuthController(
         return Ok(response);
     }
 
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
+    {
+        await authService.LogoutAsync(request.RefreshToken, cancellationToken);
+        return Ok(new { message = "Logged out successfully" });
+    }
+
     [HttpGet("validate")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]

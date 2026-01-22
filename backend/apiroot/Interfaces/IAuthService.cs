@@ -10,4 +10,5 @@ public interface IAuthService
     Task<bool> ValidateTokenAsync(string token);
     Task<bool> ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken = default);
     Task ResendEmailConfirmationAsync(ResendEmailRequest request, CancellationToken cancellationToken = default);
+    Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default);
 }
