@@ -12,4 +12,7 @@ public class RefreshToken
     public bool IsRevoked { get; set; }
     public DateTime? RevokedAt { get; set; }
     [MaxLength(200)] public string? RevokedByToken { get; set; }
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = null!;
 }
