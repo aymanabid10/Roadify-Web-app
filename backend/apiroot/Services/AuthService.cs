@@ -214,6 +214,79 @@ public class AuthService(
         logger.LogInformation("Verification email resent to user {Username}", user.UserName);
     }
 
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByEmailAsync(request.Email);
+        if (user == null)
+        {
+            logger.LogWarning("Password reset requested for non-existent email: {Email}", request.Email);
+            return;
+        }
+
+        if (!user.EmailConfirmed)
+        {
+            logger.LogWarning("Password reset requested for unconfirmed email: {Email}", request.Email);
+            return;
+        }
+
+        await SendPasswordResetEmailAsync(user, cancellationToken);
+        logger.LogInformation("Password reset email sent to user {Username}", user.UserName);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(request.UserId);
+        if (user == null)
+        {
+            throw new KeyNotFoundException("User not found");
+        }
+
+        var result = await userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"Password reset failed: {errors}");
+        }
+
+        // Revoke all refresh tokens for security
+        var userTokens = await context.RefreshTokens
+            .Where(t => t.UserId == user.Id && !t.IsRevoked)
+            .ToListAsync(cancellationToken);
+
+        foreach (var token in userTokens)
+        {
+            token.IsRevoked = true;
+            token.RevokedAt = DateTime.UtcNow;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Password reset successfully for user {Username}", user.UserName);
+    }
+
+    private async Task SendPasswordResetEmailAsync(IdentityUser user, CancellationToken cancellationToken)
+    {
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var encodedToken = Uri.EscapeDataString(token);
+        var frontendUrl = configuration["FrontendUrl"];
+        var resetLink = $"{frontendUrl}/auth/reset-password?userId={user.Id}&token={encodedToken}";
+
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "reset-password.html");
+        var htmlTemplate = await File.ReadAllTextAsync(templatePath, cancellationToken);
+
+        var htmlBody = htmlTemplate
+            .Replace("{UserName}", user.UserName)
+            .Replace("{ResetLink}", resetLink);
+
+        await emailService.SendAsync(
+            user.Email!,
+            "Reset your password - Roadify",
+            htmlBody,
+            cancellationToken);
+    }
+
     private async Task SendEmailConfirmationAsync(IdentityUser user, CancellationToken cancellationToken)
     {
         var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
