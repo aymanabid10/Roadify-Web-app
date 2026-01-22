@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { authApi, AuthResponse, ApiError } from "@/lib/api";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { authApi, AuthResponse, decodeJwt } from "@/lib/api";
 
 interface User {
+  id: string;
   username: string;
 }
 
@@ -19,71 +20,110 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Initialize user from localStorage synchronously
+function getInitialUser(): User | null {
+  if (typeof window === "undefined") return null;
+  
+  const accessToken = localStorage.getItem("accessToken");
+  if (!accessToken) return null;
+  
+  const payload = decodeJwt(accessToken);
+  if (!payload) return null;
+  
+  // Check if token is expired
+  const expiryTime = payload.exp * 1000;
+  if (expiryTime < Date.now()) return null;
+  
+  return {
+    id: payload.nameid,
+    username: payload.unique_name,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(getInitialUser);
   const [isLoading, setIsLoading] = useState(true);
+  const hasInitialized = useRef(false);
 
   const clearAuth = useCallback(() => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    localStorage.removeItem("expiresAt");
     setUser(null);
   }, []);
 
   const setAuthFromResponse = useCallback((response: AuthResponse) => {
     localStorage.setItem("accessToken", response.accessToken);
     localStorage.setItem("refreshToken", response.refreshToken);
-    localStorage.setItem("expiresAt", response.expiresAt);
-    setUser({ username: response.username });
+    
+    // Decode JWT to get user info
+    const payload = decodeJwt(response.accessToken);
+    if (payload) {
+      setUser({ 
+        id: payload.nameid,
+        username: payload.unique_name 
+      });
+    }
   }, []);
 
-  const validateAndRefreshToken = useCallback(async () => {
-    const accessToken = localStorage.getItem("accessToken");
-    const refreshToken = localStorage.getItem("refreshToken");
-    const expiresAt = localStorage.getItem("expiresAt");
+  // Background validation and refresh
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
 
-    if (!accessToken || !refreshToken) {
-      clearAuth();
-      return;
-    }
+    const validateAuth = async () => {
+      const accessToken = localStorage.getItem("accessToken");
+      const refreshToken = localStorage.getItem("refreshToken");
 
-    // Check if token is expired or about to expire (within 1 minute)
-    if (expiresAt) {
-      const expiryTime = new Date(expiresAt).getTime();
-      const now = Date.now();
-      const oneMinute = 60 * 1000;
+      if (!accessToken || !refreshToken) {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
 
-      if (expiryTime - now < oneMinute) {
+      const payload = decodeJwt(accessToken);
+      if (!payload) {
+        clearAuth();
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if token is expired or about to expire (within 1 minute)
+      const expiryTime = payload.exp * 1000;
+      const needsRefresh = expiryTime - Date.now() < 60 * 1000;
+
+      if (needsRefresh) {
         // Token expired or about to expire, try to refresh
         try {
           const response = await authApi.refresh(refreshToken);
           setAuthFromResponse(response);
-          return;
         } catch {
           clearAuth();
-          return;
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate current token with backend
+      try {
+        const result = await authApi.validate();
+        setUser({ 
+          id: payload.nameid,
+          username: result.username 
+        });
+      } catch {
+        // Try to refresh if validation fails
+        try {
+          const response = await authApi.refresh(refreshToken);
+          setAuthFromResponse(response);
+        } catch {
+          clearAuth();
         }
       }
-    }
+      setIsLoading(false);
+    };
 
-    // Validate current token
-    try {
-      const result = await authApi.validate();
-      setUser({ username: result.username });
-    } catch {
-      // Try to refresh if validation fails
-      try {
-        const response = await authApi.refresh(refreshToken);
-        setAuthFromResponse(response);
-      } catch {
-        clearAuth();
-      }
-    }
+    validateAuth();
   }, [clearAuth, setAuthFromResponse]);
-
-  useEffect(() => {
-    validateAndRefreshToken().finally(() => setIsLoading(false));
-  }, [validateAndRefreshToken]);
 
   const login = async (username: string, password: string) => {
     const response = await authApi.login({ username, password });

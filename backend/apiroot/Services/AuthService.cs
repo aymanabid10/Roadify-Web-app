@@ -271,7 +271,7 @@ public class AuthService(
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var encodedToken = Uri.EscapeDataString(token);
         var frontendUrl = configuration["FrontendUrl"];
-        var resetLink = $"{frontendUrl}/auth/reset-password?userId={user.Id}&token={encodedToken}";
+        var resetLink = $"{frontendUrl}/reset-password?userId={user.Id}&token={encodedToken}";
 
         var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "reset-password.html");
         var htmlTemplate = await File.ReadAllTextAsync(templatePath, cancellationToken);

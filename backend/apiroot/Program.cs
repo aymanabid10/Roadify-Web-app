@@ -2,7 +2,6 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
@@ -94,7 +93,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [])
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -158,8 +158,6 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
-app.UseGlobalExceptionHandler();
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -168,9 +166,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseRateLimiter();
-
 app.UseCors("AllowNextJs");
+
+app.UseGlobalExceptionHandler();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -224,7 +224,7 @@ async Task SeedAdminUserAsync(UserManager<IdentityUser> userManager)
             app.Logger.LogWarning("AdminPassword not configured. Admin user will not be created.");
             return;
         }
-        
+
         var result = await userManager.CreateAsync(admin, password);
         if (result.Succeeded)
         {

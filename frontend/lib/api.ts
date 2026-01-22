@@ -34,8 +34,33 @@ export interface RefreshTokenRequest {
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  expiresAt: string;
-  username: string;
+}
+
+// JWT payload structure (decoded from accessToken)
+export interface JwtPayload {
+  nameid: string; // ClaimTypes.NameIdentifier
+  unique_name: string; // ClaimTypes.Name (username)
+  role?: string | string[];
+  exp: number;
+  iss: string;
+  aud: string;
+}
+
+// Decode JWT token without verification (verification is done server-side)
+export function decodeJwt(token: string): JwtPayload | null {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
 }
 
 export interface ErrorResponse {
