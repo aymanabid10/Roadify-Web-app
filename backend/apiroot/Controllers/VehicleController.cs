@@ -38,9 +38,9 @@ public class VehicleController : ControllerBase
 
     // GET: api/Vehicle
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<VehicleResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedVehicleResponse<VehicleResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IEnumerable<VehicleResponseDto>>> GetVehicles(
+    public async Task<ActionResult<PaginatedVehicleResponse<VehicleResponseDto>>> GetVehicles(
         [FromQuery] string? brand = null,
         [FromQuery] string? model = null,
         [FromQuery] int? year = null,
@@ -49,13 +49,20 @@ public class VehicleController : ControllerBase
         [FromQuery] string? color = null,
         [FromQuery] string? search = null,
         [FromQuery] string sortBy = "CreatedAt",
-        [FromQuery] string sortOrder = "desc")
+        [FromQuery] string sortOrder = "desc",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
         }
+
+        // Validate pagination parameters
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100; // Max page size
 
         var query = _context.Vehicles.Where(v => v.UserId == userId);
 
@@ -103,6 +110,9 @@ public class VehicleController : ControllerBase
             );
         }
 
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+
         // Apply sorting
         query = sortBy.ToLower() switch
         {
@@ -135,7 +145,10 @@ public class VehicleController : ControllerBase
                 : query.OrderByDescending(v => v.CreatedAt)
         };
 
+        // Apply pagination
         var vehicles = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(v => new VehicleResponseDto
             {
                 Id = v.Id,
@@ -154,7 +167,20 @@ public class VehicleController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(vehicles);
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        var response = new PaginatedVehicleResponse<VehicleResponseDto>
+        {
+            Data = vehicles,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            HasPrevious = page > 1,
+            HasNext = page < totalPages
+        };
+
+        return Ok(response);
     }
 
     // GET: api/Vehicle/5
