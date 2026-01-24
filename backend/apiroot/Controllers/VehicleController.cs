@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using apiroot.Data;
 using apiroot.Models;
+using apiroot.Validators;
 using System.Security.Claims;
 
 namespace apiroot.Controllers;
@@ -19,6 +20,18 @@ public class VehicleController : ControllerBase
     {
         _context = context;
         _logger = logger;
+    }
+
+    // GET: api/Vehicle/options
+    [HttpGet("options")]
+    [AllowAnonymous]
+    public ActionResult<object> GetVehicleOptions()
+    {
+        return Ok(new
+        {
+            vehicleTypes = VehicleValidator.GetValidVehicleTypes(),
+            statuses = VehicleValidator.GetValidStatuses()
+        });
     }
 
     // GET: api/Vehicle
@@ -70,6 +83,20 @@ public class VehicleController : ControllerBase
             return Unauthorized();
         }
 
+        // Business validation
+        var validationErrors = VehicleValidator.ValidateVehicle(
+            vehicle.Year,
+            vehicle.RegistrationNumber,
+            vehicle.VehicleType,
+            vehicle.Status,
+            vehicle.Mileage
+        );
+
+        if (validationErrors.Any())
+        {
+            return BadRequest(new { errors = validationErrors });
+        }
+
         // Check if registration number already exists
         var existingVehicle = await _context.Vehicles
             .FirstOrDefaultAsync(v => v.RegistrationNumber == vehicle.RegistrationNumber);
@@ -112,6 +139,20 @@ public class VehicleController : ControllerBase
         if (existingVehicle == null)
         {
             return NotFound(new { message = "Vehicle not found" });
+        }
+
+        // Business validation
+        var validationErrors = VehicleValidator.ValidateVehicle(
+            vehicle.Year,
+            vehicle.RegistrationNumber,
+            vehicle.VehicleType,
+            vehicle.Status,
+            vehicle.Mileage
+        );
+
+        if (validationErrors.Any())
+        {
+            return BadRequest(new { errors = validationErrors });
         }
 
         // Check if registration number is being changed and if it already exists
