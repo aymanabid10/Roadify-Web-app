@@ -40,7 +40,16 @@ public class VehicleController : ControllerBase
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<VehicleResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IEnumerable<VehicleResponseDto>>> GetVehicles()
+    public async Task<ActionResult<IEnumerable<VehicleResponseDto>>> GetVehicles(
+        [FromQuery] string? brand = null,
+        [FromQuery] string? model = null,
+        [FromQuery] int? year = null,
+        [FromQuery] string? vehicleType = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? color = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string sortBy = "CreatedAt",
+        [FromQuery] string sortOrder = "desc")
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
@@ -48,9 +57,85 @@ public class VehicleController : ControllerBase
             return Unauthorized();
         }
 
-        var vehicles = await _context.Vehicles
-            .Where(v => v.UserId == userId)
-            .OrderByDescending(v => v.CreatedAt)
+        var query = _context.Vehicles.Where(v => v.UserId == userId);
+
+        // Apply filters
+        if (!string.IsNullOrWhiteSpace(brand))
+        {
+            query = query.Where(v => v.Brand.ToLower().Contains(brand.ToLower()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(model))
+        {
+            query = query.Where(v => v.Model.ToLower().Contains(model.ToLower()));
+        }
+
+        if (year.HasValue)
+        {
+            query = query.Where(v => v.Year == year.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(vehicleType))
+        {
+            query = query.Where(v => v.VehicleType == vehicleType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(v => v.Status == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(color))
+        {
+            query = query.Where(v => v.Color != null && v.Color.ToLower().Contains(color.ToLower()));
+        }
+
+        // Global search across multiple fields
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            search = search.ToLower();
+            query = query.Where(v =>
+                v.Brand.ToLower().Contains(search) ||
+                v.Model.ToLower().Contains(search) ||
+                v.RegistrationNumber.ToLower().Contains(search) ||
+                (v.Description != null && v.Description.ToLower().Contains(search)) ||
+                (v.Color != null && v.Color.ToLower().Contains(search))
+            );
+        }
+
+        // Apply sorting
+        query = sortBy.ToLower() switch
+        {
+            "brand" => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.Brand)
+                : query.OrderByDescending(v => v.Brand),
+            "model" => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.Model)
+                : query.OrderByDescending(v => v.Model),
+            "year" => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.Year)
+                : query.OrderByDescending(v => v.Year),
+            "registrationnumber" => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.RegistrationNumber)
+                : query.OrderByDescending(v => v.RegistrationNumber),
+            "vehicletype" => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.VehicleType)
+                : query.OrderByDescending(v => v.VehicleType),
+            "status" => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.Status)
+                : query.OrderByDescending(v => v.Status),
+            "mileage" => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.Mileage)
+                : query.OrderByDescending(v => v.Mileage),
+            "updatedat" => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.UpdatedAt)
+                : query.OrderByDescending(v => v.UpdatedAt),
+            _ => sortOrder.ToLower() == "asc"
+                ? query.OrderBy(v => v.CreatedAt)
+                : query.OrderByDescending(v => v.CreatedAt)
+        };
+
+        var vehicles = await query
             .Select(v => new VehicleResponseDto
             {
                 Id = v.Id,
