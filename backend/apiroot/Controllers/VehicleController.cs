@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using apiroot.Data;
+using apiroot.DTOs;
 using apiroot.Models;
 using apiroot.Validators;
 using System.Security.Claims;
@@ -36,7 +37,7 @@ public class VehicleController : ControllerBase
 
     // GET: api/Vehicle
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Vehicle>>> GetVehicles()
+    public async Task<ActionResult<IEnumerable<VehicleResponseDto>>> GetVehicles()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
@@ -47,6 +48,22 @@ public class VehicleController : ControllerBase
         var vehicles = await _context.Vehicles
             .Where(v => v.UserId == userId)
             .OrderByDescending(v => v.CreatedAt)
+            .Select(v => new VehicleResponseDto
+            {
+                Id = v.Id,
+                Brand = v.Brand,
+                Model = v.Model,
+                Year = v.Year,
+                RegistrationNumber = v.RegistrationNumber,
+                VehicleType = v.VehicleType,
+                Description = v.Description,
+                Status = v.Status,
+                Mileage = v.Mileage,
+                Color = v.Color,
+                PhotoUrls = v.PhotoUrls,
+                CreatedAt = v.CreatedAt,
+                UpdatedAt = v.UpdatedAt
+            })
             .ToListAsync();
 
         return Ok(vehicles);
@@ -54,7 +71,7 @@ public class VehicleController : ControllerBase
 
     // GET: api/Vehicle/5
     [HttpGet("{id}")]
-    public async Task<ActionResult<Vehicle>> GetVehicle(int id)
+    public async Task<ActionResult<VehicleResponseDto>> GetVehicle(int id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
@@ -63,7 +80,24 @@ public class VehicleController : ControllerBase
         }
 
         var vehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
+            .Where(v => v.Id == id && v.UserId == userId)
+            .Select(v => new VehicleResponseDto
+            {
+                Id = v.Id,
+                Brand = v.Brand,
+                Model = v.Model,
+                Year = v.Year,
+                RegistrationNumber = v.RegistrationNumber,
+                VehicleType = v.VehicleType,
+                Description = v.Description,
+                Status = v.Status,
+                Mileage = v.Mileage,
+                Color = v.Color,
+                PhotoUrls = v.PhotoUrls,
+                CreatedAt = v.CreatedAt,
+                UpdatedAt = v.UpdatedAt
+            })
+            .FirstOrDefaultAsync();
 
         if (vehicle == null)
         {
@@ -75,7 +109,7 @@ public class VehicleController : ControllerBase
 
     // POST: api/Vehicle
     [HttpPost]
-    public async Task<ActionResult<Vehicle>> CreateVehicle(Vehicle vehicle)
+    public async Task<ActionResult<VehicleResponseDto>> CreateVehicle(CreateVehicleDto dto)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
@@ -85,11 +119,11 @@ public class VehicleController : ControllerBase
 
         // Business validation
         var validationErrors = VehicleValidator.ValidateVehicle(
-            vehicle.Year,
-            vehicle.RegistrationNumber,
-            vehicle.VehicleType,
-            vehicle.Status,
-            vehicle.Mileage
+            dto.Year,
+            dto.RegistrationNumber,
+            dto.VehicleType,
+            dto.Status,
+            dto.Mileage
         );
 
         if (validationErrors.Any())
@@ -99,38 +133,61 @@ public class VehicleController : ControllerBase
 
         // Check if registration number already exists
         var existingVehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.RegistrationNumber == vehicle.RegistrationNumber);
+            .FirstOrDefaultAsync(v => v.RegistrationNumber == dto.RegistrationNumber);
 
         if (existingVehicle != null)
         {
             return Conflict(new { message = "A vehicle with this registration number already exists" });
         }
 
-        vehicle.UserId = userId;
-        vehicle.CreatedAt = DateTime.UtcNow;
-        vehicle.UpdatedAt = null;
+        var vehicle = new Vehicle
+        {
+            Brand = dto.Brand,
+            Model = dto.Model,
+            Year = dto.Year,
+            RegistrationNumber = dto.RegistrationNumber,
+            VehicleType = dto.VehicleType,
+            Description = dto.Description,
+            Status = dto.Status,
+            Mileage = dto.Mileage,
+            Color = dto.Color,
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow
+        };
 
         _context.Vehicles.Add(vehicle);
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Vehicle created with ID {VehicleId} by user {UserId}", vehicle.Id, userId);
 
-        return CreatedAtAction(nameof(GetVehicle), new { id = vehicle.Id }, vehicle);
+        var response = new VehicleResponseDto
+        {
+            Id = vehicle.Id,
+            Brand = vehicle.Brand,
+            Model = vehicle.Model,
+            Year = vehicle.Year,
+            RegistrationNumber = vehicle.RegistrationNumber,
+            VehicleType = vehicle.VehicleType,
+            Description = vehicle.Description,
+            Status = vehicle.Status,
+            Mileage = vehicle.Mileage,
+            Color = vehicle.Color,
+            PhotoUrls = vehicle.PhotoUrls,
+            CreatedAt = vehicle.CreatedAt,
+            UpdatedAt = vehicle.UpdatedAt
+        };
+
+        return CreatedAtAction(nameof(GetVehicle), new { id = vehicle.Id }, response);
     }
 
     // PUT: api/Vehicle/5
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateVehicle(int id, Vehicle vehicle)
+    public async Task<IActionResult> UpdateVehicle(int id, UpdateVehicleDto dto)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
-        }
-
-        if (id != vehicle.Id)
-        {
-            return BadRequest(new { message = "ID mismatch" });
         }
 
         var existingVehicle = await _context.Vehicles
@@ -143,11 +200,11 @@ public class VehicleController : ControllerBase
 
         // Business validation
         var validationErrors = VehicleValidator.ValidateVehicle(
-            vehicle.Year,
-            vehicle.RegistrationNumber,
-            vehicle.VehicleType,
-            vehicle.Status,
-            vehicle.Mileage
+            dto.Year,
+            dto.RegistrationNumber,
+            dto.VehicleType,
+            dto.Status,
+            dto.Mileage
         );
 
         if (validationErrors.Any())
@@ -156,10 +213,10 @@ public class VehicleController : ControllerBase
         }
 
         // Check if registration number is being changed and if it already exists
-        if (vehicle.RegistrationNumber != existingVehicle.RegistrationNumber)
+        if (dto.RegistrationNumber != existingVehicle.RegistrationNumber)
         {
             var duplicateVehicle = await _context.Vehicles
-                .FirstOrDefaultAsync(v => v.RegistrationNumber == vehicle.RegistrationNumber && v.Id != id);
+                .FirstOrDefaultAsync(v => v.RegistrationNumber == dto.RegistrationNumber && v.Id != id);
 
             if (duplicateVehicle != null)
             {
@@ -167,15 +224,15 @@ public class VehicleController : ControllerBase
             }
         }
 
-        existingVehicle.Brand = vehicle.Brand;
-        existingVehicle.Model = vehicle.Model;
-        existingVehicle.Year = vehicle.Year;
-        existingVehicle.RegistrationNumber = vehicle.RegistrationNumber;
-        existingVehicle.VehicleType = vehicle.VehicleType;
-        existingVehicle.Description = vehicle.Description;
-        existingVehicle.Status = vehicle.Status;
-        existingVehicle.Mileage = vehicle.Mileage;
-        existingVehicle.Color = vehicle.Color;
+        existingVehicle.Brand = dto.Brand;
+        existingVehicle.Model = dto.Model;
+        existingVehicle.Year = dto.Year;
+        existingVehicle.RegistrationNumber = dto.RegistrationNumber;
+        existingVehicle.VehicleType = dto.VehicleType;
+        existingVehicle.Description = dto.Description;
+        existingVehicle.Status = dto.Status;
+        existingVehicle.Mileage = dto.Mileage;
+        existingVehicle.Color = dto.Color;
         existingVehicle.UpdatedAt = DateTime.UtcNow;
 
         try
