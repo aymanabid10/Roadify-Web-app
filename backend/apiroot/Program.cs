@@ -152,6 +152,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IVehicleService, VehicleService>();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database", HealthStatus.Healthy);
