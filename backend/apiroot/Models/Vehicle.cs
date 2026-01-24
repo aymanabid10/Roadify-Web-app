@@ -37,6 +37,8 @@ public class Vehicle
     [MaxLength(50)]
     public string? Color { get; set; }
 
+    public List<string> PhotoUrls { get; set; } = new List<string>();
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }

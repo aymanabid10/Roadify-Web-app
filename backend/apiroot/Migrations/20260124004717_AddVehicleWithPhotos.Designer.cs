@@ -12,8 +12,8 @@ using apiroot.Data;
 namespace apiroot.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260123204852_AddVehicleTable")]
-    partial class AddVehicleTable
+    [Migration("20260124004717_AddVehicleWithPhotos")]
+    partial class AddVehicleWithPhotos
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -300,6 +300,10 @@ namespace apiroot.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PhotoUrls")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("RegistrationNumber")
                         .IsRequired()

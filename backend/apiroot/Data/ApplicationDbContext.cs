@@ -27,6 +27,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(e => e.Model).IsRequired();
             entity.Property(e => e.Year).IsRequired();
             entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.PhotoUrls)
+                .HasConversion(
+                    v => string.Join(',', v),
+                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
+                );
         });
     }
 }

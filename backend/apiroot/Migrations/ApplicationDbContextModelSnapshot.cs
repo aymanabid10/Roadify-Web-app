@@ -298,6 +298,10 @@ namespace apiroot.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("PhotoUrls")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("RegistrationNumber")
                         .IsRequired()
                         .HasMaxLength(50)

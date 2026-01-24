@@ -166,6 +166,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseStaticFiles(); // Enable serving static files from wwwroot
+
 app.UseCors("AllowNextJs");
 
 app.UseGlobalExceptionHandler();
