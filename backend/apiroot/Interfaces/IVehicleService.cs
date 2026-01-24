@@ -6,7 +6,7 @@ namespace apiroot.Interfaces;
 public interface IVehicleService
 {
     Task<object> GetVehicleOptionsAsync();
-    Task<PaginatedVehicleResponse<VehicleResponseDto>> GetVehiclesAsync(
+    Task<PaginatedResponse<VehicleResponseDto>> GetVehiclesAsync(
         string userId,
         string? brand,
         string? model,

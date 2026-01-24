@@ -1,6 +1,6 @@
 namespace apiroot.DTOs;
 
-public class PaginatedVehicleResponse<T>
+public class PaginatedResponse<T>
 {
     public List<T> Data { get; set; } = new List<T>();
     public int Page { get; set; }

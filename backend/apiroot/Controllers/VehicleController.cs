@@ -30,9 +30,9 @@ public class VehicleController : ControllerBase
 
     // GET: api/Vehicle
     [HttpGet]
-    [ProducesResponseType(typeof(PaginatedVehicleResponse<VehicleResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponse<VehicleResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<PaginatedVehicleResponse<VehicleResponseDto>>> GetVehicles(
+    public async Task<ActionResult<PaginatedResponse<VehicleResponseDto>>> GetVehicles(
         [FromQuery] string? brand = null,
         [FromQuery] string? model = null,
         [FromQuery] int? year = null,

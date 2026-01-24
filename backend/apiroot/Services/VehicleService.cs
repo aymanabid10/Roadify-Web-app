@@ -28,7 +28,7 @@ public class VehicleService : IVehicleService
         return Task.FromResult<object>(options);
     }
 
-    public async Task<PaginatedVehicleResponse<VehicleResponseDto>> GetVehiclesAsync(
+    public async Task<PaginatedResponse<VehicleResponseDto>> GetVehiclesAsync(
         string userId,
         string? brand,
         string? model,
@@ -152,7 +152,7 @@ public class VehicleService : IVehicleService
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-        return new PaginatedVehicleResponse<VehicleResponseDto>
+        return new PaginatedResponse<VehicleResponseDto>
         {
             Data = vehicles,
             Page = page,
