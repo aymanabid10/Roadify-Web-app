@@ -22,6 +22,14 @@ public class Expertise
     [MaxLength(500)]
     public string? DocumentUrl { get; set; }
 
+    [Range(0, 100)]
+    public int ConditionScore { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? EstimatedValue { get; set; }
+
+    public DateTime InspectionDate { get; set; } = DateTime.UtcNow;
+
     [Required]
     public bool IsApproved { get; set; }
 

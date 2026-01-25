@@ -53,7 +53,10 @@ public class ExpertiseService : IExpertiseService
             ExpertId = expertId,
             TechnicalReport = request.TechnicalReport,
             DocumentUrl = request.DocumentUrl,
-            IsApproved = request.IsApproved
+            IsApproved = request.IsApproved,
+            ConditionScore = request.ConditionScore,
+            EstimatedValue = request.EstimatedValue,
+            InspectionDate = request.InspectionDate ?? DateTime.UtcNow
         };
 
         _context.Expertises.Add(expertise);
@@ -149,6 +152,9 @@ public class ExpertiseService : IExpertiseService
             TechnicalReport = expertise.TechnicalReport,
             DocumentUrl = expertise.DocumentUrl,
             IsApproved = expertise.IsApproved,
+            ConditionScore = expertise.ConditionScore,
+            EstimatedValue = expertise.EstimatedValue,
+            InspectionDate = expertise.InspectionDate,
             CreatedAt = expertise.CreatedAt
         };
     }

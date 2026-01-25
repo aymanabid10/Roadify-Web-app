@@ -33,7 +33,13 @@ public class ListingService : IListingService
         {
             Title = request.Title,
             Description = request.Description,
+            Price = request.Price,
+            Currency = request.Currency,
+            IsPriceNegotiable = request.IsPriceNegotiable,
+            ContactPhone = request.ContactPhone,
             ListingType = request.ListingType,
+            Location = request.Location,
+            Features = request.Features,
             VehicleId = request.VehicleId,
             OwnerId = userId
         };
@@ -78,6 +84,11 @@ public class ListingService : IListingService
         {
             query = query.Where(l => l.Status == filter.Status.Value);
         }
+        else
+        {
+            // Default: Hide expired/archived unless explicitly requested
+            query = query.Where(l => l.Status == ListingStatus.PUBLISHED);
+        }
 
         if (filter.ListingType.HasValue)
         {
@@ -92,6 +103,21 @@ public class ListingService : IListingService
         if (filter.VehicleId.HasValue)
         {
             query = query.Where(l => l.VehicleId == filter.VehicleId.Value);
+        }
+
+        if (filter.MinPrice.HasValue)
+        {
+            query = query.Where(l => l.Price >= filter.MinPrice.Value);
+        }
+
+        if (filter.MaxPrice.HasValue)
+        {
+            query = query.Where(l => l.Price <= filter.MaxPrice.Value);
+        }
+
+        if (!string.IsNullOrEmpty(filter.Location))
+        {
+            query = query.Where(l => l.Location.Contains(filter.Location));
         }
 
         if (!string.IsNullOrEmpty(filter.Search))
@@ -109,6 +135,9 @@ public class ListingService : IListingService
             "title" => filter.SortOrder.ToLower() == "asc" 
                 ? query.OrderBy(l => l.Title) 
                 : query.OrderByDescending(l => l.Title),
+            "price" => filter.SortOrder.ToLower() == "asc" 
+                ? query.OrderBy(l => l.Price) 
+                : query.OrderByDescending(l => l.Price),
             "status" => filter.SortOrder.ToLower() == "asc" 
                 ? query.OrderBy(l => l.Status) 
                 : query.OrderByDescending(l => l.Status),
@@ -173,9 +202,39 @@ public class ListingService : IListingService
             listing.Description = request.Description;
         }
 
+        if (request.Price.HasValue)
+        {
+            listing.Price = request.Price.Value;
+        }
+
+        if (request.Currency.HasValue)
+        {
+            listing.Currency = request.Currency.Value;
+        }
+
+        if (request.IsPriceNegotiable.HasValue)
+        {
+            listing.IsPriceNegotiable = request.IsPriceNegotiable.Value;
+        }
+
+        if (request.ContactPhone != null)
+        {
+            listing.ContactPhone = request.ContactPhone;
+        }
+
         if (request.ListingType.HasValue)
         {
             listing.ListingType = request.ListingType.Value;
+        }
+
+        if (!string.IsNullOrEmpty(request.Location))
+        {
+            listing.Location = request.Location;
+        }
+
+        if (request.Features != null)
+        {
+            listing.Features = request.Features;
         }
 
         listing.UpdatedAt = DateTime.UtcNow;
@@ -232,6 +291,8 @@ public class ListingService : IListingService
         }
 
         listing.Publish();
+        // Set expiration to 90 days from now
+        listing.ExpirationDate = DateTime.UtcNow.AddDays(90);
         await _context.SaveChangesAsync(cancellationToken);
 
         return await MapToResponseAsync(listing, cancellationToken);
@@ -296,8 +357,15 @@ public class ListingService : IListingService
             Id = listing.Id,
             Title = listing.Title,
             Description = listing.Description,
+            Price = listing.Price,
+            Currency = listing.Currency,
+            IsPriceNegotiable = listing.IsPriceNegotiable,
+            ContactPhone = listing.ContactPhone,
             ListingType = listing.ListingType,
             Status = listing.Status,
+            Location = listing.Location,
+            Features = listing.Features,
+            ExpirationDate = listing.ExpirationDate,
             VehicleId = listing.VehicleId,
             OwnerId = listing.OwnerId,
             OwnerUsername = listing.Owner?.UserName,

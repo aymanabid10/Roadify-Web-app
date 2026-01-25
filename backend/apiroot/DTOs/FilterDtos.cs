@@ -8,6 +8,9 @@ public class ListingFilterRequest
     public ListingType? ListingType { get; set; }
     public string? OwnerId { get; set; }
     public int? VehicleId { get; set; }
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+    public string? Location { get; set; }
     public string? Search { get; set; }
     public string SortBy { get; set; } = "CreatedAt";
     public string SortOrder { get; set; } = "desc";

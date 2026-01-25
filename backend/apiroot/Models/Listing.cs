@@ -17,7 +17,25 @@ public class Listing
     public string? Description { get; set; }
 
     [Required]
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal Price { get; set; }
+
+    public Currency Currency { get; set; } = Currency.TND;
+    public bool IsPriceNegotiable { get; set; } = false;
+
+    [MaxLength(20)]
+    public string? ContactPhone { get; set; }
+
+    [Required]
     public ListingType ListingType { get; set; }
+
+    [Required]
+    [MaxLength(100)]
+    public string Location { get; set; } = string.Empty;
+
+    public List<string> Features { get; set; } = new();
+
+    public DateTime? ExpirationDate { get; set; }
 
     [Required]
     public ListingStatus Status { get; set; } = ListingStatus.DRAFT;

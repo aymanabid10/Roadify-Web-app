@@ -164,6 +164,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddScoped<IListingService, ListingService>();
 builder.Services.AddScoped<IExpertiseService, ExpertiseService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database", HealthStatus.Healthy);
