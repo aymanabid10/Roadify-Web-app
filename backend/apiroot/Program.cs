@@ -7,6 +7,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using apiroot.Data;
+using apiroot.Enums;
 using apiroot.HealthChecks;
 using apiroot.Interfaces;
 using apiroot.Models;
@@ -196,14 +197,14 @@ return;
 
 async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
 {
-    if (!await roleManager.RoleExistsAsync("USER"))
+    if (!await roleManager.RoleExistsAsync(nameof(UserRole.USER)))
     {
-        await roleManager.CreateAsync(new IdentityRole("USER"));
+        await roleManager.CreateAsync(new IdentityRole(nameof(UserRole.USER)));
     }
 
-    if (!await roleManager.RoleExistsAsync("ADMIN"))
+    if (!await roleManager.RoleExistsAsync(nameof(UserRole.ADMIN)))
     {
-        await roleManager.CreateAsync(new IdentityRole("ADMIN"));
+        await roleManager.CreateAsync(new IdentityRole(nameof(UserRole.ADMIN)));
     }
 }
 
@@ -231,8 +232,8 @@ async Task SeedAdminUserAsync(UserManager<IdentityUser> userManager)
         var result = await userManager.CreateAsync(admin, password);
         if (result.Succeeded)
         {
-            await userManager.AddToRoleAsync(admin, "ADMIN");
-            await userManager.AddToRoleAsync(admin, "USER");
+            await userManager.AddToRoleAsync(admin, nameof(UserRole.ADMIN));
+            await userManager.AddToRoleAsync(admin, nameof(UserRole.USER));
         }
     }
 }

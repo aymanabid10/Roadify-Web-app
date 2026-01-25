@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using apiroot.Data;
 using apiroot.DTOs;
 using apiroot.Interfaces;
+using apiroot.Enums;
 
 namespace apiroot.Services;
 
@@ -44,7 +45,7 @@ public class AuthService(
             throw new InvalidOperationException($"User creation failed: {errors}");
         }
 
-        await userManager.AddToRoleAsync(user, "USER");
+        await userManager.AddToRoleAsync(user, nameof(UserRole.USER));
 
         // Send email verification
         await SendEmailConfirmationAsync(user, cancellationToken);
@@ -91,7 +92,7 @@ public class AuthService(
         CancellationToken cancellationToken = default)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-        
+
         try
         {
             var storedToken = await context.RefreshTokens
@@ -296,7 +297,7 @@ public class AuthService(
 
         var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "confirm-email.html");
         var htmlTemplate = await File.ReadAllTextAsync(templatePath, cancellationToken);
-        
+
         var htmlBody = htmlTemplate
             .Replace("{UserName}", user.UserName)
             .Replace("{ConfirmationLink}", confirmationLink);
