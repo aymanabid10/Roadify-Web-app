@@ -13,6 +13,7 @@ public class AuthController(
     IAuthService authService,
     ILogger<AuthController> logger) : ControllerBase
 {
+    [AllowAnonymous]
     [HttpPost("register")]
     [EnableRateLimiting("EmailRateLimit")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -26,6 +27,7 @@ public class AuthController(
         return Ok(new { message = "Registration successful. Please check your email to confirm your account." });
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     [EnableRateLimiting("LoginRateLimit")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
@@ -38,6 +40,7 @@ public class AuthController(
         return Ok(response);
     }
 
+    [AllowAnonymous]
     [HttpPost("refresh")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
@@ -47,6 +50,7 @@ public class AuthController(
         return Ok(response);
     }
 
+    [AllowAnonymous]
     [HttpPost("logout")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
@@ -64,6 +68,7 @@ public class AuthController(
         return Ok(new { valid = true, username = User.Identity?.Name });
     }
 
+    [AllowAnonymous]
     [HttpPost("confirm-email")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -75,6 +80,7 @@ public class AuthController(
         return Ok(response);
     }
 
+    [AllowAnonymous]
     [HttpPost("resend-confirmation")]
     [EnableRateLimiting("EmailRateLimit")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -87,6 +93,7 @@ public class AuthController(
         return Ok(new { message = "If your email is registered and not confirmed, you will receive a confirmation email shortly" });
     }
 
+    [AllowAnonymous]
     [HttpPost("forgot-password")]
     [EnableRateLimiting("EmailRateLimit")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -99,6 +106,7 @@ public class AuthController(
         return Ok(new { message = "If your email is registered, you will receive a password reset link shortly" });
     }
 
+    [AllowAnonymous]
     [HttpPost("reset-password")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
