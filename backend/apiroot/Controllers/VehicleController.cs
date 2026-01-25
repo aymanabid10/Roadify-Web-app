@@ -12,6 +12,7 @@ namespace apiroot.Controllers;
 public class VehicleController : ControllerBase
 {
     private readonly IVehicleService _vehicleService;
+    private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     public VehicleController(IVehicleService vehicleService)
     {
@@ -45,14 +46,8 @@ public class VehicleController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
         var result = await _vehicleService.GetVehiclesAsync(
-            userId, brand, model, year, vehicleType, status, color, search, sortBy, sortOrder, page, pageSize);
+            UserId, brand, model, year, vehicleType, status, color, search, sortBy, sortOrder, page, pageSize);
 
         return Ok(result);
     }
@@ -64,13 +59,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<VehicleResponseDto>> GetVehicle(int id)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        var vehicle = await _vehicleService.GetVehicleByIdAsync(id, userId);
+        var vehicle = await _vehicleService.GetVehicleByIdAsync(id, UserId);
 
         if (vehicle == null)
         {
@@ -88,13 +77,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<VehicleResponseDto>> CreateVehicle(CreateVehicleDto dto)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        var (success, vehicle, errorMessage, statusCode) = await _vehicleService.CreateVehicleAsync(dto, userId);
+        var (success, vehicle, errorMessage, statusCode) = await _vehicleService.CreateVehicleAsync(dto, UserId);
 
         if (!success)
         {
@@ -118,13 +101,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateVehicle(int id, UpdateVehicleDto dto)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        var (success, errorMessage, statusCode) = await _vehicleService.UpdateVehicleAsync(id, dto, userId);
+        var (success, errorMessage, statusCode) = await _vehicleService.UpdateVehicleAsync(id, dto, UserId);
 
         if (!success)
         {
@@ -147,13 +124,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteVehicle(int id)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        var (success, errorMessage) = await _vehicleService.DeleteVehicleAsync(id, userId);
+        var (success, errorMessage) = await _vehicleService.DeleteVehicleAsync(id, UserId);
 
         if (!success)
         {
@@ -172,13 +143,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> UploadVehiclePhotos(int id, [FromForm] List<IFormFile> photos)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        var (success, photoUrls, errorMessage, statusCode) = await _vehicleService.UploadVehiclePhotosAsync(id, photos, userId);
+        var (success, photoUrls, errorMessage, statusCode) = await _vehicleService.UploadVehiclePhotosAsync(id, photos, UserId);
 
         if (!success)
         {
@@ -201,13 +166,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> DeleteVehiclePhoto(int id, [FromQuery] string photoUrl)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        var (success, errorMessage, statusCode) = await _vehicleService.DeleteVehiclePhotoAsync(id, photoUrl, userId);
+        var (success, errorMessage, statusCode) = await _vehicleService.DeleteVehiclePhotoAsync(id, photoUrl, UserId);
 
         if (!success)
         {
