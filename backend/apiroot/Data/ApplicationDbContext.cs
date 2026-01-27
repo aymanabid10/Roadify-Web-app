@@ -9,6 +9,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<Media> Media { get; set; }
+    public DbSet<Listing> Listings { get; set; }
+    public DbSet<Expertise> Expertises { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -42,7 +44,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(e => e.IsDeleted);
             entity.Property(e => e.Url).IsRequired();
             entity.Property(e => e.Type).IsRequired();
-
+          
             entity.HasOne(e => e.Vehicle)
                 .WithMany()
                 .HasForeignKey(e => e.VehicleId)
@@ -52,6 +54,42 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.Restrict);
+
+          });
+  
+        // Listing configuration
+        builder.Entity<Listing>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            
+            entity.HasOne(e => e.Owner)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerId)
+                .OnDelete(DeleteBehavior.Restrict);
+          
+            entity.HasOne(e => e.Expertise)
+                .WithOne(e => e.Listing)
+                .HasForeignKey<Expertise>(e => e.ListingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes for performance
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ListingType);
+            entity.HasIndex(e => e.OwnerId);
+            entity.HasIndex(e => e.VehicleId);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // Expertise configuration
+        builder.Entity<Expertise>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(e => e.Expert)
+                .WithMany()
+                .HasForeignKey(e => e.ExpertId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
