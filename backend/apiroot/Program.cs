@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using apiroot.Data;
 using apiroot.Enums;
 using apiroot.HealthChecks;
@@ -81,11 +82,18 @@ builder.Services.AddSwaggerGen(c =>
         Description = "JWT Authorization header using the Bearer scheme."
     });
 
-    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecuritySchemeReference("Bearer", document),
-            []
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
         }
     });
 });
@@ -176,6 +184,9 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<IListingService, ListingService>();
+builder.Services.AddScoped<IExpertiseService, ExpertiseService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database", HealthStatus.Healthy);
@@ -227,6 +238,11 @@ async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
     if (!await roleManager.RoleExistsAsync(nameof(UserRole.ADMIN)))
     {
         await roleManager.CreateAsync(new IdentityRole(nameof(UserRole.ADMIN)));
+    }
+
+    if (!await roleManager.RoleExistsAsync(nameof(UserRole.EXPERT)))
+    {
+        await roleManager.CreateAsync(new IdentityRole(nameof(UserRole.EXPERT)));
     }
 }
 
