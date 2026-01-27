@@ -160,6 +160,32 @@ public class MediaService(ApplicationDbContext context) : IMediaService
         return (true, url, null, null);
     }
 
+    public async Task<(bool Success, string? ErrorMessage, int? StatusCode)> UpdateMediaAsync(
+        Guid id, UpdateMediaDto dto, string userId)
+    {
+        var media = await _context.Media
+            .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId && !m.IsDeleted);
+
+        if (media == null)
+        {
+            return (false, "Media not found or access denied", StatusCodes.Status404NotFound);
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Url))
+        {
+            media.Url = dto.Url;
+        }
+
+        if (dto.Type.HasValue)
+        {
+            media.Type = dto.Type.Value;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return (true, null, null);
+    }
+
     private static (bool IsValid, string? ErrorMessage) ValidateFile(IFormFile file, MediaType type)
     {
         if (file == null || file.Length == 0)

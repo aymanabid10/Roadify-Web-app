@@ -17,4 +17,7 @@ public interface IMediaService
 
     Task<(bool Success, string? Url, string? ErrorMessage, int? StatusCode)> UploadMediaAsync(
         IFormFile file, MediaType type, Guid vehicleId, string userId);
+
+    Task<(bool Success, string? ErrorMessage, int? StatusCode)> UpdateMediaAsync(
+        Guid id, UpdateMediaDto dto, string userId);
 }
