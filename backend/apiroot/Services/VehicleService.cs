@@ -12,6 +12,14 @@ public class VehicleService : IVehicleService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<VehicleService> _logger;
 
+    private const int DefaultPage = 1;
+    private const int DefaultPageSize = 10;
+    private const int MaxPageSize = 100;
+    private const int MaxPhotosPerVehicle = 10;
+    private const int MaxPhotoSizeBytes = 5 * 1024 * 1024; // 5MB
+    private static readonly string[] AllowedPhotoExtensions = { ".jpg", ".jpeg", ".png", ".webp" };
+    private static readonly string PhotoUploadPath = Path.Combine("wwwroot", "uploads", "vehicles");
+
     public VehicleService(ApplicationDbContext context, ILogger<VehicleService> logger)
     {
         _context = context;
@@ -43,9 +51,9 @@ public class VehicleService : IVehicleService
         int pageSize)
     {
         // Validate pagination parameters
-        if (page < 1) page = 1;
-        if (pageSize < 1) pageSize = 10;
-        if (pageSize > 100) pageSize = 100;
+        if (page < 1) page = DefaultPage;
+        if (pageSize < 1) pageSize = DefaultPageSize;
+        if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
         var query = _context.Vehicles.Where(v => v.UserId == userId);
 
@@ -97,64 +105,19 @@ public class VehicleService : IVehicleService
         var totalCount = await query.CountAsync();
 
         // Apply sorting
-        query = sortBy.ToLower() switch
-        {
-            "brand" => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.Brand)
-                : query.OrderByDescending(v => v.Brand),
-            "model" => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.Model)
-                : query.OrderByDescending(v => v.Model),
-            "year" => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.Year)
-                : query.OrderByDescending(v => v.Year),
-            "registrationnumber" => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.RegistrationNumber)
-                : query.OrderByDescending(v => v.RegistrationNumber),
-            "vehicletype" => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.VehicleType)
-                : query.OrderByDescending(v => v.VehicleType),
-            "status" => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.Status)
-                : query.OrderByDescending(v => v.Status),
-            "mileage" => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.Mileage)
-                : query.OrderByDescending(v => v.Mileage),
-            "updatedat" => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.UpdatedAt)
-                : query.OrderByDescending(v => v.UpdatedAt),
-            _ => sortOrder.ToLower() == "asc"
-                ? query.OrderBy(v => v.CreatedAt)
-                : query.OrderByDescending(v => v.CreatedAt)
-        };
+        query = ApplySorting(query, sortBy, sortOrder);
 
         // Apply pagination
         var vehicles = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(v => new VehicleResponseDto
-            {
-                Id = v.Id,
-                Brand = v.Brand,
-                Model = v.Model,
-                Year = v.Year,
-                RegistrationNumber = v.RegistrationNumber,
-                VehicleType = v.VehicleType,
-                Description = v.Description,
-                Status = v.Status,
-                Mileage = v.Mileage,
-                Color = v.Color,
-                PhotoUrls = v.PhotoUrls,
-                CreatedAt = v.CreatedAt,
-                UpdatedAt = v.UpdatedAt
-            })
             .ToListAsync();
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
         return new PaginatedResponse<VehicleResponseDto>
         {
-            Data = vehicles,
+            Data = vehicles.Select(MapToDto).ToList(),
             Page = page,
             PageSize = pageSize,
             TotalCount = totalCount,
@@ -166,25 +129,8 @@ public class VehicleService : IVehicleService
 
     public async Task<VehicleResponseDto?> GetVehicleByIdAsync(int id, string userId)
     {
-        return await _context.Vehicles
-            .Where(v => v.Id == id && v.UserId == userId)
-            .Select(v => new VehicleResponseDto
-            {
-                Id = v.Id,
-                Brand = v.Brand,
-                Model = v.Model,
-                Year = v.Year,
-                RegistrationNumber = v.RegistrationNumber,
-                VehicleType = v.VehicleType,
-                Description = v.Description,
-                Status = v.Status,
-                Mileage = v.Mileage,
-                Color = v.Color,
-                PhotoUrls = v.PhotoUrls,
-                CreatedAt = v.CreatedAt,
-                UpdatedAt = v.UpdatedAt
-            })
-            .FirstOrDefaultAsync();
+        var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
+        return vehicle == null ? null : MapToDto(vehicle);
     }
 
     public async Task<(bool Success, VehicleResponseDto? Vehicle, string? ErrorMessage, int? StatusCode)> CreateVehicleAsync(
@@ -233,31 +179,13 @@ public class VehicleService : IVehicleService
 
         _logger.LogInformation("Vehicle created with ID {VehicleId} by user {UserId}", vehicle.Id, userId);
 
-        var response = new VehicleResponseDto
-        {
-            Id = vehicle.Id,
-            Brand = vehicle.Brand,
-            Model = vehicle.Model,
-            Year = vehicle.Year,
-            RegistrationNumber = vehicle.RegistrationNumber,
-            VehicleType = vehicle.VehicleType,
-            Description = vehicle.Description,
-            Status = vehicle.Status,
-            Mileage = vehicle.Mileage,
-            Color = vehicle.Color,
-            PhotoUrls = vehicle.PhotoUrls,
-            CreatedAt = vehicle.CreatedAt,
-            UpdatedAt = vehicle.UpdatedAt
-        };
-
-        return (true, response, null, null);
+        return (true, MapToDto(vehicle), null, null);
     }
 
     public async Task<(bool Success, string? ErrorMessage, int? StatusCode)> UpdateVehicleAsync(
         int id, UpdateVehicleDto dto, string userId)
     {
-        var existingVehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
+        var existingVehicle = await GetVehicleByIdAndUserAsync(id, userId);
 
         if (existingVehicle == null)
         {
@@ -320,8 +248,7 @@ public class VehicleService : IVehicleService
 
     public async Task<(bool Success, string? ErrorMessage)> DeleteVehicleAsync(int id, string userId)
     {
-        var vehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
+        var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
 
         if (vehicle == null)
         {
@@ -331,7 +258,7 @@ public class VehicleService : IVehicleService
         // Delete associated photos from file system
         foreach (var photoUrl in vehicle.PhotoUrls)
         {
-            var photoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", photoUrl.TrimStart('/'));
+            var photoPath = GetPhotoPath(photoUrl);
             if (File.Exists(photoPath))
             {
                 File.Delete(photoPath);
@@ -349,8 +276,7 @@ public class VehicleService : IVehicleService
     public async Task<(bool Success, List<string>? PhotoUrls, string? ErrorMessage, int? StatusCode)> UploadVehiclePhotosAsync(
         int id, List<IFormFile> photos, string userId)
     {
-        var vehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
+        var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
 
         if (vehicle == null)
         {
@@ -363,16 +289,13 @@ public class VehicleService : IVehicleService
         }
 
         // Validate photo count
-        if (vehicle.PhotoUrls.Count + photos.Count > 10)
+        if (vehicle.PhotoUrls.Count + photos.Count > MaxPhotosPerVehicle)
         {
-            return (false, null, $"Cannot upload more than 10 photos per vehicle. Current: {vehicle.PhotoUrls.Count}", 400);
+            return (false, null, $"Cannot upload more than {MaxPhotosPerVehicle} photos per vehicle. Current: {vehicle.PhotoUrls.Count}", 400);
         }
 
-        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-        var maxFileSize = 5 * 1024 * 1024; // 5MB
-
         var uploadedUrls = new List<string>();
-        var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "vehicles");
+        var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), PhotoUploadPath);
 
         // Create directory if needed
         if (!Directory.Exists(uploadsPath))
@@ -382,20 +305,15 @@ public class VehicleService : IVehicleService
 
         foreach (var photo in photos)
         {
-            // Validate extension
-            var extension = Path.GetExtension(photo.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension))
+            // Validate photo
+            var validationError = ValidatePhoto(photo);
+            if (validationError != null)
             {
-                return (false, null, $"Invalid file type: {extension}. Allowed: {string.Join(", ", allowedExtensions)}", 400);
-            }
-
-            // Validate size
-            if (photo.Length > maxFileSize)
-            {
-                return (false, null, $"File {photo.FileName} exceeds maximum size of 5MB", 400);
+                return (false, null, validationError, 400);
             }
 
             // Generate unique filename
+            var extension = Path.GetExtension(photo.FileName).ToLowerInvariant();
             var fileName = $"{id}_{Guid.NewGuid()}{extension}";
             var filePath = Path.Combine(uploadsPath, fileName);
 
@@ -421,8 +339,7 @@ public class VehicleService : IVehicleService
     public async Task<(bool Success, string? ErrorMessage, int? StatusCode)> DeleteVehiclePhotoAsync(
         int id, string photoUrl, string userId)
     {
-        var vehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
+        var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
 
         if (vehicle == null)
         {
@@ -440,7 +357,7 @@ public class VehicleService : IVehicleService
         }
 
         // Delete file from file system
-        var photoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", photoUrl.TrimStart('/'));
+        var photoPath = GetPhotoPath(photoUrl);
         if (File.Exists(photoPath))
         {
             File.Delete(photoPath);
@@ -458,5 +375,72 @@ public class VehicleService : IVehicleService
     private async Task<bool> VehicleExistsAsync(int id)
     {
         return await _context.Vehicles.AnyAsync(e => e.Id == id);
+    }
+
+    private static VehicleResponseDto MapToDto(Vehicle vehicle)
+    {
+        return new VehicleResponseDto
+        {
+            Id = vehicle.Id,
+            Brand = vehicle.Brand,
+            Model = vehicle.Model,
+            Year = vehicle.Year,
+            RegistrationNumber = vehicle.RegistrationNumber,
+            VehicleType = vehicle.VehicleType,
+            Description = vehicle.Description,
+            Status = vehicle.Status,
+            Mileage = vehicle.Mileage,
+            Color = vehicle.Color,
+            PhotoUrls = vehicle.PhotoUrls,
+            CreatedAt = vehicle.CreatedAt,
+            UpdatedAt = vehicle.UpdatedAt
+        };
+    }
+
+    private async Task<Vehicle?> GetVehicleByIdAndUserAsync(int id, string userId)
+    {
+        return await _context.Vehicles
+            .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
+    }
+
+    private static string GetPhotoPath(string photoUrl)
+    {
+        return Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", photoUrl.TrimStart('/'));
+    }
+
+    private static IQueryable<Vehicle> ApplySorting(IQueryable<Vehicle> query, string sortBy, string sortOrder)
+    {
+        var isAscending = sortOrder.ToLower() == "asc";
+
+        return sortBy.ToLower() switch
+        {
+            "brand" => isAscending ? query.OrderBy(v => v.Brand) : query.OrderByDescending(v => v.Brand),
+            "model" => isAscending ? query.OrderBy(v => v.Model) : query.OrderByDescending(v => v.Model),
+            "year" => isAscending ? query.OrderBy(v => v.Year) : query.OrderByDescending(v => v.Year),
+            "registrationnumber" => isAscending ? query.OrderBy(v => v.RegistrationNumber) : query.OrderByDescending(v => v.RegistrationNumber),
+            "vehicletype" => isAscending ? query.OrderBy(v => v.VehicleType) : query.OrderByDescending(v => v.VehicleType),
+            "status" => isAscending ? query.OrderBy(v => v.Status) : query.OrderByDescending(v => v.Status),
+            "mileage" => isAscending ? query.OrderBy(v => v.Mileage) : query.OrderByDescending(v => v.Mileage),
+            "updatedat" => isAscending ? query.OrderBy(v => v.UpdatedAt) : query.OrderByDescending(v => v.UpdatedAt),
+            _ => isAscending ? query.OrderBy(v => v.CreatedAt) : query.OrderByDescending(v => v.CreatedAt)
+        };
+    }
+
+    private static string? ValidatePhoto(IFormFile photo)
+    {
+        // Validate extension
+        var extension = Path.GetExtension(photo.FileName).ToLowerInvariant();
+        if (!AllowedPhotoExtensions.Contains(extension))
+        {
+            return $"Invalid file type: {extension}. Allowed: {string.Join(", ", AllowedPhotoExtensions)}";
+        }
+
+        // Validate size
+        if (photo.Length > MaxPhotoSizeBytes)
+        {
+            return $"File {photo.FileName} exceeds maximum size of 5MB";
+        }
+
+        return null;
     }
 }

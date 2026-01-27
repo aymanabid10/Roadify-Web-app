@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Mail;
 using System.Text.Json;
 using apiroot.DTOs;
 
@@ -38,6 +39,7 @@ public class GlobalExceptionHandler
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized access"),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found"),
             ArgumentException => (HttpStatusCode.BadRequest, "Invalid request"),
+            SmtpException => (HttpStatusCode.ServiceUnavailable, "Email service is temporarily unavailable"),
             _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred")
         };
 
