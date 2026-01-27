@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using apiroot.Data;
 using apiroot.DTOs;
+using apiroot.Enums;
 using apiroot.Interfaces;
 using apiroot.Models;
 
@@ -71,7 +72,7 @@ public class ListingService : IListingService
         return await MapToResponseAsync(listing, cancellationToken);
     }
 
-    public async Task<PaginatedResponse<ListingResponse>> GetListingsAsync(ListingFilterRequest filter, CancellationToken cancellationToken = default)
+    public async Task<PaginatedResponse<ListingResponse>> GetPublicListingsAsync(ListingFilterRequest filter, CancellationToken cancellationToken = default)
     {
         var query = _context.Listings
             .Include(l => l.Owner)
@@ -79,16 +80,45 @@ public class ListingService : IListingService
             .Include(l => l.Expertise)
             .AsQueryable();
 
-        // Apply filters
+        // Public endpoint: Only show PUBLISHED listings
         if (filter.Status.HasValue)
         {
             query = query.Where(l => l.Status == filter.Status.Value);
         }
         else
         {
-            // Default: Hide expired/archived unless explicitly requested
             query = query.Where(l => l.Status == ListingStatus.PUBLISHED);
         }
+
+        return await ApplyFiltersAndPaginationAsync(query, filter, cancellationToken);
+    }
+
+    public async Task<PaginatedResponse<ListingResponse>> GetAllListingsAsync(ListingFilterRequest filter, CancellationToken cancellationToken = default)
+    {
+        var query = _context.Listings
+            .Include(l => l.Owner)
+            .Include(l => l.Vehicle)
+            .Include(l => l.Expertise)
+            .AsQueryable();
+
+        // Admin/Expert endpoint: Show all listings except archived
+        if (filter.Status.HasValue)
+        {
+            query = query.Where(l => l.Status == filter.Status.Value);
+        }
+        else
+        {
+            query = query.Where(l => l.Status != ListingStatus.ARCHIVED);
+        }
+
+        return await ApplyFiltersAndPaginationAsync(query, filter, cancellationToken);
+    }
+
+    private async Task<PaginatedResponse<ListingResponse>> ApplyFiltersAndPaginationAsync(
+        IQueryable<Listing> query, 
+        ListingFilterRequest filter, 
+        CancellationToken cancellationToken)
+    {
 
         if (filter.ListingType.HasValue)
         {

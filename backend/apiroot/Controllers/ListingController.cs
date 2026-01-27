@@ -68,14 +68,59 @@ public class ListingController : ControllerBase
     }
 
     /// <summary>
-    /// Get all listings with filtering and pagination
+    /// Get all published listings (public access)
     /// </summary>
+    /// <remarks>
+    /// This endpoint is publicly accessible and returns only PUBLISHED listings.
+    /// Perfect for marketplace browsing by end users.
+    /// </remarks>
     [HttpGet]
     [AllowAnonymous]
     [ProducesResponseType(typeof(PaginatedResponse<ListingResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetListings([FromQuery] ListingFilterRequest filter, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPublicListings([FromQuery] ListingFilterRequest filter, CancellationToken cancellationToken)
     {
-        var result = await _listingService.GetListingsAsync(filter, cancellationToken);
+        var result = await _listingService.GetPublicListingsAsync(filter, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get all listings for admin/expert review
+    /// </summary>
+    /// <remarks>
+    /// This endpoint requires ADMIN or EXPERT role and returns all listings (DRAFT, PENDING_REVIEW, PUBLISHED, REJECTED).
+    /// Used by experts to review and approve listings.
+    /// </remarks>
+    [HttpGet("admin")]
+    [Authorize(Roles = "ADMIN,EXPERT")]
+    [ProducesResponseType(typeof(PaginatedResponse<ListingResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAllListings([FromQuery] ListingFilterRequest filter, CancellationToken cancellationToken)
+    {
+        var result = await _listingService.GetAllListingsAsync(filter, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get current user's own listings
+    /// </summary>
+    /// <remarks>
+    /// Returns all listings created by the authenticated user, regardless of status.
+    /// </remarks>
+    [HttpGet("my-listings")]
+    [ProducesResponseType(typeof(PaginatedResponse<ListingResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyListings([FromQuery] ListingFilterRequest filter, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        // Override the OwnerId filter to ensure users only see their own listings
+        filter.OwnerId = userId;
+        var result = await _listingService.GetAllListingsAsync(filter, cancellationToken);
         return Ok(result);
     }
 
