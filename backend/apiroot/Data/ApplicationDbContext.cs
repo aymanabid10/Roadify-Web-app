@@ -8,6 +8,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 {
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
+    public DbSet<Media> Media { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -32,6 +33,24 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                     v => string.Join(',', v),
                     v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
                 );
+        });
+
+        builder.Entity<Media>(entity =>
+        {
+            entity.HasIndex(e => e.VehicleId);
+            entity.HasIndex(e => e.UserId);
+            entity.Property(e => e.Url).IsRequired();
+            entity.Property(e => e.Type).IsRequired();
+
+            entity.HasOne(e => e.Vehicle)
+                .WithMany()
+                .HasForeignKey(e => e.VehicleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }
