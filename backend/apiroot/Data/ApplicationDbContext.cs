@@ -39,6 +39,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.HasIndex(e => e.VehicleId);
             entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.IsDeleted);
             entity.Property(e => e.Url).IsRequired();
             entity.Property(e => e.Type).IsRequired();
 
