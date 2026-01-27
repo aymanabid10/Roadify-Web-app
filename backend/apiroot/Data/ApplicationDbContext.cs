@@ -54,7 +54,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
-                .OnDelete(DeleteBehavior.Restrict);
 
           });
   
