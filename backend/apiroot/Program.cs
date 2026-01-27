@@ -176,6 +176,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IListingService, ListingService>();
 builder.Services.AddScoped<IExpertiseService, ExpertiseService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
