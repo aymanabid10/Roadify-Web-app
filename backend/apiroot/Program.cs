@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using Microsoft.OpenApi.Models;
 using apiroot.Data;
 using apiroot.Enums;
 using apiroot.HealthChecks;
@@ -14,6 +13,8 @@ using apiroot.Interfaces;
 using apiroot.Models;
 using apiroot.Middleware;
 using apiroot.Services;
+using MongoDB.Driver;
+using apiroot.Data.Mongo.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,18 +81,11 @@ builder.Services.AddSwaggerGen(c =>
         Description = "JWT Authorization header using the Bearer scheme."
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
+            new OpenApiSecuritySchemeReference("Bearer", document),
+            []
         }
     });
 });
@@ -134,6 +128,26 @@ if (string.IsNullOrEmpty(jwtKey) || Encoding.UTF8.GetBytes(jwtKey).Length < 32)
 {
     throw new InvalidOperationException("JWT Key must be at least 256 bits (32 characters) for HMAC-SHA256");
 }
+
+// Add MongoDB settings
+builder.Services.Configure<MongoDbSettings>(
+    builder.Configuration.GetSection("MongoDbSettings"));
+
+builder.Services.AddSingleton<IMongoClient>(sp =>
+{
+    var settings = builder.Configuration
+        .GetSection("MongoDbSettings")
+        .Get<MongoDbSettings>();
+
+    return new MongoClient(settings.ConnectionString ?? throw new InvalidOperationException("MongoDB ConnectionString is not configured."));
+});
+
+//Add MongoDB context
+builder.Services.AddSingleton<MongoDbContext>();
+
+//Inject ReviewRepository and ReviewService
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 
 builder.Services.AddAuthentication(options =>
     {
