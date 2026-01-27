@@ -1,118 +1,82 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
-using apiroot.Data;
-using apiroot.DTOs;
-using apiroot.Interfaces;
 using apiroot.Models;
-
-namespace apiroot.Services;
+using Microsoft.AspNetCore.Identity;
 
 public class ReviewService : IReviewService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IReviewRepository _reviewRepository;
     private readonly UserManager<IdentityUser> _userManager;
 
-    public ReviewService(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+    public ReviewService(IReviewRepository reviewRepository, UserManager<IdentityUser> userManager)
     {
-        _context = context;
+        _reviewRepository = reviewRepository;
         _userManager = userManager;
     }
 
-    public async Task<ReviewResponse> CreateReviewAsync(CreateReviewRequest request, string reviewerId)
+    public async Task AddReviewAsync(Guid reviewerId, CreateReviewDto dto)
     {
-        // Don't allow self-review
-        if (request.TargetUserId == reviewerId)
-        {
-            throw new InvalidOperationException("You cannot review yourself");
-        }
+        if (reviewerId == dto.TargetUserId)
+            throw new Exception("Auto-notation is not allowed!");
 
-        // Verify target user exists
-        var targetUser = await _userManager.FindByIdAsync(request.TargetUserId);
-        if (targetUser == null)
-        {
-            throw new InvalidOperationException("Target user not found");
-        }
+        if (await _userManager.FindByIdAsync(dto.TargetUserId.ToString()) == null)
+            throw new Exception("Target user is not found!");
 
-        var review = new Review
+        await _reviewRepository.AddAsync(new Review
         {
             ReviewerId = reviewerId,
-            TargetUserId = request.TargetUserId,
-            Rating = request.Rating,
-            Comment = request.Comment,
-            IsVisible = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Reviews.Add(review);
-        await _context.SaveChangesAsync();
-
-        return await MapToResponseAsync(review);
+            TargetUserId = dto.TargetUserId,
+            Rating = dto.Rating,
+            Comment = dto.Comment
+        });
     }
 
-    public async Task<PaginatedResponse<ReviewResponse>> GetUserReviewsAsync(string targetUserId, int page = 1, int pageSize = 10)
+    public async Task UpdateReviewAsync(string id, Guid currentUserId, UpdateReviewDto dto)
     {
-        var query = _context.Reviews
-            .Include(r => r.Reviewer)
-            .Where(r => r.TargetUserId == targetUserId && r.IsVisible)
-            .OrderByDescending(r => r.CreatedAt);
+        var review = await GetAndValidateOwnerAsync(id, currentUserId);
 
-        var totalCount = await query.CountAsync();
-        var reviews = await query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        review.Rating = dto.Rating;
+        review.Comment = dto.Comment;
 
-        var items = new List<ReviewResponse>();
-        foreach (var review in reviews)
-        {
-            items.Add(await MapToResponseAsync(review));
-        }
-
-        return new PaginatedResponse<ReviewResponse>
-        {
-            Data = items,
-            TotalCount = totalCount,
-            Page = page,
-            PageSize = pageSize,
-            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
-            HasPrevious = page > 1,
-            HasNext = page < (int)Math.Ceiling(totalCount / (double)pageSize)
-        };
+        await _reviewRepository.UpdateAsync(id, review);
     }
 
-    public async Task<bool> DeleteReviewAsync(Guid id, string userId)
+    public async Task DeleteReviewAsync(string id, Guid currentUserId)
     {
-        var review = await _context.Reviews.FindAsync(id);
-        if (review == null) return false;
-
-        // Only reviewer can delete their review
-        if (review.ReviewerId != userId)
-        {
-            throw new UnauthorizedAccessException("You can only delete your own reviews");
-        }
-
-        _context.Reviews.Remove(review);
-        await _context.SaveChangesAsync();
-        return true;
+        await GetAndValidateOwnerAsync(id, currentUserId);
+        await _reviewRepository.DeleteAsync(id);
     }
 
-    private async Task<ReviewResponse> MapToResponseAsync(Review review)
+    public async Task<IEnumerable<ReviewDto>> GetMyReviewsAsync(Guid userId) 
+        => (await _reviewRepository.GetByReviewerIdAsync(userId)).Select(MapToDto);
+
+    public async Task<IEnumerable<ReviewDto>> GetUserReviewsAsync(Guid targetUserId) 
+        => (await _reviewRepository.GetByTargetUserIdAsync(targetUserId)).Select(MapToDto);
+
+    public async Task<double> GetAverageRatingAsync(Guid userId)
     {
-        if (review.Reviewer == null)
-        {
-            await _context.Entry(review).Reference(r => r.Reviewer).LoadAsync();
-        }
+        // Vérification Identity (SQL)
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+            throw new KeyNotFoundException("User not found");
 
-        return new ReviewResponse
-        {
-            Id = review.Id,
-            ReviewerId = review.ReviewerId,
-            ReviewerUsername = review.Reviewer?.UserName,
-            TargetUserId = review.TargetUserId,
-            Rating = review.Rating,
-            Comment = review.Comment,
-            IsVisible = review.IsVisible,
-            CreatedAt = review.CreatedAt
-        };
+        return await _reviewRepository.GetAverageRatingAsync(userId);
     }
+    //Private Helpers
+
+    private async Task<Review> GetAndValidateOwnerAsync(string id, Guid currentUserId)
+    {
+        var review = await _reviewRepository.GetByIdAsync(id) 
+                     ?? throw new Exception("Review not found!");
+
+        if (review.ReviewerId != currentUserId) 
+            throw new Exception("Action is not allowed!");
+
+        return review;
+    }
+
+    private static ReviewDto MapToDto(Review r) => new()
+    {
+        Rating = r.Rating,
+        Comment = r.Comment,
+        CreatedAt = r.CreatedAt
+    };
 }

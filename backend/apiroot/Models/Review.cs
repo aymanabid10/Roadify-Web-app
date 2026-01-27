@@ -1,36 +1,16 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Identity;
+using apiroot.Models;
 
 namespace apiroot.Models;
 
 public class Review
 {
-    [Key]
-    public Guid Id { get; set; } = Guid.NewGuid();
-
-    [Required]
-    public string ReviewerId { get; set; } = string.Empty;
-
-    [Required]
-    public string TargetUserId { get; set; } = string.Empty;
-
-    [Required]
-    [Range(1, 5)]
+    public Guid ReviewerId { get; set; }
+    public Guid TargetUserId { get; set; }
+    [Range(1, 10)]
     public int Rating { get; set; }
+    public string Comment { get; set; } = String.Empty;
 
-    [MaxLength(1000)]
-    public string? Comment { get; set; }
+    public DateTime CreatedAt { get; set; }
 
-    [Required]
-    public bool IsVisible { get; set; } = true;
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    // Navigation properties
-    [ForeignKey(nameof(ReviewerId))]
-    public IdentityUser Reviewer { get; set; } = null!;
-
-    [ForeignKey(nameof(TargetUserId))]
-    public IdentityUser TargetUser { get; set; } = null!;
 }
