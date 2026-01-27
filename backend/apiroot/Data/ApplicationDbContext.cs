@@ -10,7 +10,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<Listing> Listings { get; set; }
     public DbSet<Expertise> Expertises { get; set; }
-    public DbSet<Review> Reviews { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -74,25 +73,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .WithMany()
                 .HasForeignKey(e => e.ExpertId)
                 .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        // Review configuration
-        builder.Entity<Review>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-
-            entity.HasOne(e => e.Reviewer)
-                .WithMany()
-                .HasForeignKey(e => e.ReviewerId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.TargetUser)
-                .WithMany()
-                .HasForeignKey(e => e.TargetUserId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasIndex(e => e.TargetUserId);
-            entity.HasIndex(e => e.CreatedAt);
         });
     }
 }
