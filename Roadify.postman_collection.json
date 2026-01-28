@@ -296,7 +296,7 @@
                     "response": []
                 },
                 {
-                    "name": "Get All Listings",
+                    "name": "Get Public Listings",
                     "request": {
                         "method": "GET",
                         "header": [],
@@ -317,9 +317,103 @@
                                 {
                                     "key": "pageSize",
                                     "value": "10"
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "minPrice",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "maxPrice",
+                                    "value": "",
+                                    "disabled": true
                                 }
                             ]
-                        }
+                        },
+                        "description": "Public endpoint - Returns only PUBLISHED listings. No authentication required."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Listings (Admin/Expert)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listing/admin?page=1&pageSize=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listing",
+                                "admin"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "pageSize",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "1",
+                                    "description": "0=DRAFT, 1=PENDING_REVIEW, 2=PUBLISHED, 3=REJECTED, 4=ARCHIVED",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Admin/Expert endpoint - Returns all listings (DRAFT, PENDING_REVIEW, PUBLISHED, REJECTED). Requires ADMIN or EXPERT role."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get My Listings",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listing/my-listings?page=1&pageSize=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listing",
+                                "my-listings"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "pageSize",
+                                    "value": "10"
+                                }
+                            ]
+                        },
+                        "description": "Returns all listings created by the authenticated user, regardless of status."
                     },
                     "response": []
                 },
