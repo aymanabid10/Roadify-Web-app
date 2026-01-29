@@ -19,9 +19,9 @@ public class ListingService : IListingService
         _userManager = userManager;
     }
 
-    public async Task<ListingResponse> CreateListingAsync(CreateListingRequest request, string userId, CancellationToken cancellationToken = default)
+    // New type-specific create methods
+    public async Task<SaleListingResponse> CreateSaleListingAsync(CreateSaleListingRequest request, string userId, CancellationToken cancellationToken = default)
     {
-        // Verify vehicle exists and belongs to user
         var vehicle = await _context.Vehicles
             .FirstOrDefaultAsync(v => v.Id == request.VehicleId && v.UserId == userId, cancellationToken);
 
@@ -30,7 +30,7 @@ public class ListingService : IListingService
             throw new InvalidOperationException("Vehicle not found or does not belong to user");
         }
 
-        var listing = new Listing
+        var listing = new SaleListing
         {
             Title = request.Title,
             Description = request.Description,
@@ -38,12 +38,108 @@ public class ListingService : IListingService
             Currency = request.Currency,
             IsPriceNegotiable = request.IsPriceNegotiable,
             ContactPhone = request.ContactPhone,
-            ListingType = request.ListingType,
             Location = request.Location,
             Features = request.Features,
             VehicleId = request.VehicleId,
-            OwnerId = userId
+            OwnerId = userId,
+            HasClearTitle = request.HasClearTitle,
+            FinancingAvailable = request.FinancingAvailable,
+            TradeInAccepted = request.TradeInAccepted,
+            WarrantyInfo = request.WarrantyInfo
         };
+
+        _context.Listings.Add(listing);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return MapToSaleListingResponse(listing);
+    }
+
+    public async Task<RentListingResponse> CreateRentListingAsync(CreateRentListingRequest request, string userId, CancellationToken cancellationToken = default)
+    {
+        var vehicle = await _context.Vehicles
+            .FirstOrDefaultAsync(v => v.Id == request.VehicleId && v.UserId == userId, cancellationToken);
+
+        if (vehicle == null)
+        {
+            throw new InvalidOperationException("Vehicle not found or does not belong to user");
+        }
+
+        var listing = new RentListing
+        {
+            Title = request.Title,
+            Description = request.Description,
+            Price = request.Price,
+            Currency = request.Currency,
+            IsPriceNegotiable = request.IsPriceNegotiable,
+            ContactPhone = request.ContactPhone,
+            Location = request.Location,
+            Features = request.Features,
+            VehicleId = request.VehicleId,
+            OwnerId = userId,
+            WeeklyRate = request.WeeklyRate,
+            MonthlyRate = request.MonthlyRate,
+            SecurityDeposit = request.SecurityDeposit,
+            MinimumRentalPeriod = request.MinimumRentalPeriod,
+            MaximumRentalPeriod = request.MaximumRentalPeriod,
+            MileageLimitPerDay = request.MileageLimitPerDay,
+            InsuranceIncluded = request.InsuranceIncluded,
+            FuelPolicy = request.FuelPolicy,
+            DeliveryAvailable = request.DeliveryAvailable,
+            DeliveryFee = request.DeliveryFee
+        };
+
+        _context.Listings.Add(listing);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return MapToRentListingResponse(listing);
+    }
+
+    // Legacy method for backward compatibility
+    [Obsolete("Use CreateSaleListingAsync or CreateRentListingAsync instead")]
+    public async Task<ListingResponse> CreateListingAsync(CreateListingRequest request, string userId, CancellationToken cancellationToken = default)
+    {
+        var vehicle = await _context.Vehicles
+            .FirstOrDefaultAsync(v => v.Id == request.VehicleId && v.UserId == userId, cancellationToken);
+
+        if (vehicle == null)
+        {
+            throw new InvalidOperationException("Vehicle not found or does not belong to user");
+        }
+
+        Listing listing;
+        if (request.ListingType == ListingType.SALE)
+        {
+            listing = new SaleListing
+            {
+                Title = request.Title,
+                Description = request.Description,
+                Price = request.Price,
+                Currency = request.Currency,
+                IsPriceNegotiable = request.IsPriceNegotiable,
+                ContactPhone = request.ContactPhone,
+                Location = request.Location,
+                Features = request.Features,
+                VehicleId = request.VehicleId,
+                OwnerId = userId
+            };
+        }
+        else
+        {
+            listing = new RentListing
+            {
+                Title = request.Title,
+                Description = request.Description,
+                Price = request.Price,
+                Currency = request.Currency,
+                IsPriceNegotiable = request.IsPriceNegotiable,
+                ContactPhone = request.ContactPhone,
+                Location = request.Location,
+                Features = request.Features,
+                VehicleId = request.VehicleId,
+                OwnerId = userId,
+                SecurityDeposit = 0
+            };
+        }
 
         _context.Listings.Add(listing);
         await _context.SaveChangesAsync(cancellationToken);
@@ -122,7 +218,14 @@ public class ListingService : IListingService
 
         if (filter.ListingType.HasValue)
         {
-            query = query.Where(l => l.ListingType == filter.ListingType.Value);
+            if (filter.ListingType.Value == ListingType.SALE)
+            {
+                query = query.OfType<SaleListing>();
+            }
+            else if (filter.ListingType.Value == ListingType.RENT)
+            {
+                query = query.OfType<RentListing>();
+            }
         }
 
         if (!string.IsNullOrEmpty(filter.OwnerId))
@@ -203,6 +306,115 @@ public class ListingService : IListingService
         };
     }
 
+    public async Task<ListingResponse> UpdateSaleListingAsync(Guid id, UpdateSaleListingRequest request, string userId, CancellationToken cancellationToken = default)
+    {
+        var listing = await _context.Listings.OfType<SaleListing>().FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+
+        if (listing == null)
+        {
+            throw new InvalidOperationException("Sale listing not found");
+        }
+
+        if (listing.OwnerId != userId)
+        {
+            throw new UnauthorizedAccessException("You can only update your own listings");
+        }
+
+        if (listing.Status != ListingStatus.DRAFT)
+        {
+            throw new InvalidOperationException("Can only update listings in DRAFT status");
+        }
+
+        // Update common properties
+        UpdateCommonListingProperties(listing, request);
+
+        // Update sale-specific properties
+        if (request.HasClearTitle.HasValue)
+            listing.HasClearTitle = request.HasClearTitle.Value;
+        if (request.FinancingAvailable.HasValue)
+            listing.FinancingAvailable = request.FinancingAvailable.Value;
+        if (request.TradeInAccepted.HasValue)
+            listing.TradeInAccepted = request.TradeInAccepted.Value;
+        if (request.WarrantyInfo != null)
+            listing.WarrantyInfo = request.WarrantyInfo;
+
+        listing.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return await MapToResponseAsync(listing, cancellationToken);
+    }
+
+    public async Task<ListingResponse> UpdateRentListingAsync(Guid id, UpdateRentListingRequest request, string userId, CancellationToken cancellationToken = default)
+    {
+        var listing = await _context.Listings.OfType<RentListing>().FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+
+        if (listing == null)
+        {
+            throw new InvalidOperationException("Rent listing not found");
+        }
+
+        if (listing.OwnerId != userId)
+        {
+            throw new UnauthorizedAccessException("You can only update your own listings");
+        }
+
+        if (listing.Status != ListingStatus.DRAFT)
+        {
+            throw new InvalidOperationException("Can only update listings in DRAFT status");
+        }
+
+        // Update common properties
+        UpdateCommonListingProperties(listing, request);
+
+        // Update rent-specific properties
+        if (request.WeeklyRate.HasValue)
+            listing.WeeklyRate = request.WeeklyRate;
+        if (request.MonthlyRate.HasValue)
+            listing.MonthlyRate = request.MonthlyRate;
+        if (request.SecurityDeposit.HasValue)
+            listing.SecurityDeposit = request.SecurityDeposit.Value;
+        if (request.MinimumRentalPeriod != null)
+            listing.MinimumRentalPeriod = request.MinimumRentalPeriod;
+        if (request.MaximumRentalPeriod != null)
+            listing.MaximumRentalPeriod = request.MaximumRentalPeriod;
+        if (request.MileageLimitPerDay.HasValue)
+            listing.MileageLimitPerDay = request.MileageLimitPerDay;
+        if (request.InsuranceIncluded.HasValue)
+            listing.InsuranceIncluded = request.InsuranceIncluded.Value;
+        if (request.FuelPolicy != null)
+            listing.FuelPolicy = request.FuelPolicy;
+        if (request.DeliveryAvailable.HasValue)
+            listing.DeliveryAvailable = request.DeliveryAvailable.Value;
+        if (request.DeliveryFee.HasValue)
+            listing.DeliveryFee = request.DeliveryFee;
+
+        listing.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return await MapToResponseAsync(listing, cancellationToken);
+    }
+
+    private void UpdateCommonListingProperties(Listing listing, UpdateListingRequestBase request)
+    {
+        if (!string.IsNullOrEmpty(request.Title))
+            listing.Title = request.Title;
+        if (request.Description != null)
+            listing.Description = request.Description;
+        if (request.Price.HasValue)
+            listing.Price = request.Price.Value;
+        if (request.Currency.HasValue)
+            listing.Currency = request.Currency.Value;
+        if (request.IsPriceNegotiable.HasValue)
+            listing.IsPriceNegotiable = request.IsPriceNegotiable.Value;
+        if (request.ContactPhone != null)
+            listing.ContactPhone = request.ContactPhone;
+        if (!string.IsNullOrEmpty(request.Location))
+            listing.Location = request.Location;
+        if (request.Features != null)
+            listing.Features = request.Features;
+    }
+
+    [Obsolete("Use UpdateSaleListingAsync or UpdateRentListingAsync instead")]
     public async Task<ListingResponse> UpdateListingAsync(Guid id, UpdateListingRequest request, string userId, CancellationToken cancellationToken = default)
     {
         var listing = await _context.Listings.FindAsync(new object[] { id }, cancellationToken);
@@ -250,11 +462,6 @@ public class ListingService : IListingService
         if (request.ContactPhone != null)
         {
             listing.ContactPhone = request.ContactPhone;
-        }
-
-        if (request.ListingType.HasValue)
-        {
-            listing.ListingType = request.ListingType.Value;
         }
 
         if (!string.IsNullOrEmpty(request.Location))
@@ -382,7 +589,7 @@ public class ListingService : IListingService
             };
         }
 
-        return new ListingResponse
+        var response = new ListingResponse
         {
             Id = listing.Id,
             Title = listing.Title,
@@ -391,7 +598,7 @@ public class ListingService : IListingService
             Currency = listing.Currency,
             IsPriceNegotiable = listing.IsPriceNegotiable,
             ContactPhone = listing.ContactPhone,
-            ListingType = listing.ListingType,
+            ListingType = listing.GetListingType(),
             Status = listing.Status,
             Location = listing.Location,
             Features = listing.Features,
@@ -404,6 +611,96 @@ public class ListingService : IListingService
             CreatedAt = listing.CreatedAt,
             UpdatedAt = listing.UpdatedAt,
             Expertise = expertiseResponse
+        };
+
+        // Map type-specific properties
+        if (listing is SaleListing saleListing)
+        {
+            response.HasClearTitle = saleListing.HasClearTitle;
+            response.FinancingAvailable = saleListing.FinancingAvailable;
+            response.TradeInAccepted = saleListing.TradeInAccepted;
+            response.WarrantyInfo = saleListing.WarrantyInfo;
+        }
+        else if (listing is RentListing rentListing)
+        {
+            response.WeeklyRate = rentListing.WeeklyRate;
+            response.MonthlyRate = rentListing.MonthlyRate;
+            response.SecurityDeposit = rentListing.SecurityDeposit;
+            response.MinimumRentalPeriod = rentListing.MinimumRentalPeriod;
+            response.MaximumRentalPeriod = rentListing.MaximumRentalPeriod;
+            response.MileageLimitPerDay = rentListing.MileageLimitPerDay;
+            response.InsuranceIncluded = rentListing.InsuranceIncluded;
+            response.FuelPolicy = rentListing.FuelPolicy;
+            response.DeliveryAvailable = rentListing.DeliveryAvailable;
+            response.DeliveryFee = rentListing.DeliveryFee;
+        }
+
+        return response;
+    }
+
+    private SaleListingResponse MapToSaleListingResponse(SaleListing listing)
+    {
+        return new SaleListingResponse
+        {
+            Id = listing.Id,
+            Title = listing.Title,
+            Description = listing.Description,
+            Price = listing.Price,
+            Currency = listing.Currency,
+            IsPriceNegotiable = listing.IsPriceNegotiable,
+            ContactPhone = listing.ContactPhone,
+            ListingType = ListingType.SALE,
+            Status = listing.Status,
+            Location = listing.Location,
+            Features = listing.Features,
+            ExpirationDate = listing.ExpirationDate,
+            VehicleId = listing.VehicleId,
+            OwnerId = listing.OwnerId,
+            OwnerUsername = listing.Owner?.UserName,
+            ViewCount = listing.ViewCount,
+            TrustScore = listing.TrustScore,
+            CreatedAt = listing.CreatedAt,
+            UpdatedAt = listing.UpdatedAt,
+            HasClearTitle = listing.HasClearTitle,
+            FinancingAvailable = listing.FinancingAvailable,
+            TradeInAccepted = listing.TradeInAccepted,
+            WarrantyInfo = listing.WarrantyInfo
+        };
+    }
+
+    private RentListingResponse MapToRentListingResponse(RentListing listing)
+    {
+        return new RentListingResponse
+        {
+            Id = listing.Id,
+            Title = listing.Title,
+            Description = listing.Description,
+            Price = listing.Price,
+            Currency = listing.Currency,
+            IsPriceNegotiable = listing.IsPriceNegotiable,
+            ContactPhone = listing.ContactPhone,
+            ListingType = ListingType.RENT,
+            Status = listing.Status,
+            Location = listing.Location,
+            Features = listing.Features,
+            ExpirationDate = listing.ExpirationDate,
+            VehicleId = listing.VehicleId,
+            OwnerId = listing.OwnerId,
+            OwnerUsername = listing.Owner?.UserName,
+            ViewCount = listing.ViewCount,
+            TrustScore = listing.TrustScore,
+            CreatedAt = listing.CreatedAt,
+            UpdatedAt = listing.UpdatedAt,
+            WeeklyRate = listing.WeeklyRate,
+            MonthlyRate = listing.MonthlyRate,
+            SecurityDeposit = listing.SecurityDeposit,
+            MinimumRentalPeriod = listing.MinimumRentalPeriod,
+            MaximumRentalPeriod = listing.MaximumRentalPeriod,
+            MileageLimitPerDay = listing.MileageLimitPerDay,
+            InsuranceIncluded = listing.InsuranceIncluded,
+            FuelPolicy = listing.FuelPolicy,
+            DeliveryAvailable = listing.DeliveryAvailable,
+            DeliveryFee = listing.DeliveryFee
         };
     }
 }
