@@ -57,7 +57,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(typeof(VehicleResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<VehicleResponseDto>> GetVehicle(int id)
+    public async Task<ActionResult<VehicleResponseDto>> GetVehicle(Guid id)
     {
         var vehicle = await _vehicleService.GetVehicleByIdAsync(id, UserId);
 
@@ -99,7 +99,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> UpdateVehicle(int id, UpdateVehicleDto dto)
+    public async Task<IActionResult> UpdateVehicle(Guid id, UpdateVehicleDto dto)
     {
         var (success, errorMessage, statusCode) = await _vehicleService.UpdateVehicleAsync(id, dto, UserId);
 
@@ -122,7 +122,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteVehicle(int id)
+    public async Task<IActionResult> DeleteVehicle(Guid id)
     {
         var (success, errorMessage) = await _vehicleService.DeleteVehicleAsync(id, UserId);
 
@@ -141,7 +141,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> UploadVehiclePhotos(int id, [FromForm] List<IFormFile> photos)
+    public async Task<ActionResult> UploadVehiclePhotos(Guid id, [FromForm] List<IFormFile> photos)
     {
         var (success, photoUrls, errorMessage, statusCode) = await _vehicleService.UploadVehiclePhotosAsync(id, photos, UserId);
 
@@ -164,7 +164,7 @@ public class VehicleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> DeleteVehiclePhoto(int id, [FromQuery] string photoUrl)
+    public async Task<ActionResult> DeleteVehiclePhoto(Guid id, [FromQuery] string photoUrl)
     {
         var (success, errorMessage, statusCode) = await _vehicleService.DeleteVehiclePhotoAsync(id, photoUrl, UserId);
 

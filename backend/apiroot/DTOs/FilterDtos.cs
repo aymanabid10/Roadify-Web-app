@@ -7,7 +7,7 @@ public class ListingFilterRequest
     public ListingStatus? Status { get; set; }
     public ListingType? ListingType { get; set; }
     public string? OwnerId { get; set; }
-    public int? VehicleId { get; set; }
+    public Guid? VehicleId { get; set; }
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
     public string? Location { get; set; }

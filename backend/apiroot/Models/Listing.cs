@@ -42,7 +42,7 @@ public abstract class Listing
     public ListingStatus Status { get; set; } = ListingStatus.DRAFT;
 
     [Required]
-    public int VehicleId { get; set; }
+    public Guid VehicleId { get; set; }
 
     [Required]
     public string OwnerId { get; set; } = string.Empty;

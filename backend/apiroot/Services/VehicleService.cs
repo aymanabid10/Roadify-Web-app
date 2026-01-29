@@ -127,7 +127,7 @@ public class VehicleService : IVehicleService
         };
     }
 
-    public async Task<VehicleResponseDto?> GetVehicleByIdAsync(int id, string userId)
+    public async Task<VehicleResponseDto?> GetVehicleByIdAsync(Guid id, string userId)
     {
         var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
         return vehicle == null ? null : MapToDto(vehicle);
@@ -183,7 +183,7 @@ public class VehicleService : IVehicleService
     }
 
     public async Task<(bool Success, string? ErrorMessage, int? StatusCode)> UpdateVehicleAsync(
-        int id, UpdateVehicleDto dto, string userId)
+        Guid id, UpdateVehicleDto dto, string userId)
     {
         var existingVehicle = await GetVehicleByIdAndUserAsync(id, userId);
 
@@ -246,7 +246,7 @@ public class VehicleService : IVehicleService
         return (true, null, null);
     }
 
-    public async Task<(bool Success, string? ErrorMessage)> DeleteVehicleAsync(int id, string userId)
+    public async Task<(bool Success, string? ErrorMessage)> DeleteVehicleAsync(Guid id, string userId)
     {
         var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
 
@@ -274,7 +274,7 @@ public class VehicleService : IVehicleService
     }
 
     public async Task<(bool Success, List<string>? PhotoUrls, string? ErrorMessage, int? StatusCode)> UploadVehiclePhotosAsync(
-        int id, List<IFormFile> photos, string userId)
+        Guid id, List<IFormFile> photos, string userId)
     {
         var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
 
@@ -337,7 +337,7 @@ public class VehicleService : IVehicleService
     }
 
     public async Task<(bool Success, string? ErrorMessage, int? StatusCode)> DeleteVehiclePhotoAsync(
-        int id, string photoUrl, string userId)
+        Guid id, string photoUrl, string userId)
     {
         var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
 
@@ -372,7 +372,7 @@ public class VehicleService : IVehicleService
         return (true, null, null);
     }
 
-    private async Task<bool> VehicleExistsAsync(int id)
+    private async Task<bool> VehicleExistsAsync(Guid id)
     {
         return await _context.Vehicles.AnyAsync(e => e.Id == id);
     }
@@ -397,7 +397,7 @@ public class VehicleService : IVehicleService
         };
     }
 
-    private async Task<Vehicle?> GetVehicleByIdAndUserAsync(int id, string userId)
+    private async Task<Vehicle?> GetVehicleByIdAndUserAsync(Guid id, string userId)
     {
         return await _context.Vehicles
             .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);

@@ -103,7 +103,7 @@ public class CreateListingRequest
     public ListingType ListingType { get; set; }
 
     [Required]
-    public int VehicleId { get; set; }
+    public Guid VehicleId { get; set; }
 
     [Required]
     [MaxLength(100)]
@@ -221,7 +221,7 @@ public abstract class ListingResponseBase
     public string Location { get; set; } = string.Empty;
     public List<string> Features { get; set; } = new();
     public DateTime? ExpirationDate { get; set; }
-    public int VehicleId { get; set; }
+    public Guid VehicleId { get; set; }
     public string OwnerId { get; set; } = string.Empty;
     public string? OwnerUsername { get; set; }
     public int ViewCount { get; set; }

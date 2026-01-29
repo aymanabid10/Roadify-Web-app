@@ -8,6 +8,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 {
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
+    public DbSet<Media> Media { get; set; }
     public DbSet<Listing> Listings { get; set; }
     public DbSet<Expertise> Expertises { get; set; }
 
@@ -36,7 +37,27 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 );
         });
 
-        // Listing configuration - Table-Per-Hierarchy (TPH) inheritance
+        builder.Entity<Media>(entity =>
+        {
+            entity.HasIndex(e => e.VehicleId);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.IsDeleted);
+            entity.Property(e => e.Url).IsRequired();
+            entity.Property(e => e.Type).IsRequired();
+          
+            entity.HasOne(e => e.Vehicle)
+                .WithMany()
+                .HasForeignKey(e => e.VehicleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+          });
+  
+        // Listing configuration
         builder.Entity<Listing>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -50,12 +71,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .WithMany()
                 .HasForeignKey(e => e.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.Vehicle)
-                .WithMany()
-                .HasForeignKey(e => e.VehicleId)
-                .OnDelete(DeleteBehavior.Restrict);
-
+          
             entity.HasOne(e => e.Expertise)
                 .WithOne(e => e.Listing)
                 .HasForeignKey<Expertise>(e => e.ListingId)
