@@ -1,10 +1,9 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace apiroot.Validators;
 
 public static class VehicleValidator
 {
-    public static List<string> ValidateVehicle(int year, string registrationNumber, string vehicleType, string status, decimal? mileage)
+    public static List<string> ValidateVehicle(int year, string registrationNumber, string vehicleType, string status,
+        decimal? mileage)
     {
         var errors = new List<string>();
 
