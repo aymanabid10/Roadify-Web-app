@@ -21,6 +21,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(e => e.Token).IsUnique();
             entity.Property(e => e.Token).IsRequired();
             entity.Property(e => e.UserId).IsRequired();
+            
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .HasColumnType("xid")
+                .HasColumnName("xmin");
         });
 
         builder.Entity<Vehicle>(entity =>
