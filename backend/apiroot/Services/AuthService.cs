@@ -297,7 +297,7 @@ public class AuthService(
         var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
         var encodedToken = Uri.EscapeDataString(token);
         var frontendUrl = configuration["FrontendUrl"];
-        var confirmationLink = $"{frontendUrl}/auth/confirm-email?userId={user.Id}&token={encodedToken}";
+        var confirmationLink = $"{frontendUrl}/confirm-email?userId={user.Id}&token={encodedToken}";
 
         var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "confirm-email.html");
         var htmlTemplate = await File.ReadAllTextAsync(templatePath, cancellationToken);
