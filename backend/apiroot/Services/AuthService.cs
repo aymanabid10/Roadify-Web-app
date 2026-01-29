@@ -14,6 +14,7 @@ public class AuthService(
     IEmailService emailService,
     IConfiguration configuration,
     ApplicationDbContext context,
+    IServiceScopeFactory serviceScopeFactory,
     ILogger<AuthService> logger) : IAuthService
 {
     public async Task RegisterAsync(RegisterRequest request,
@@ -144,14 +145,17 @@ public class AuthService(
     {
         try
         {
-            var tokensToDelete = await context.RefreshTokens
+            await using var scope = serviceScopeFactory.CreateAsyncScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            
+            var tokensToDelete = await dbContext.RefreshTokens
                 .Where(t => t.UserId == userId && (t.IsRevoked || t.ExpiresAt < DateTime.UtcNow))
                 .ToListAsync();
 
             if (tokensToDelete.Count > 0)
             {
-                context.RefreshTokens.RemoveRange(tokensToDelete);
-                await context.SaveChangesAsync();
+                dbContext.RefreshTokens.RemoveRange(tokensToDelete);
+                await dbContext.SaveChangesAsync();
             }
         }
         catch (Exception ex)
@@ -293,7 +297,7 @@ public class AuthService(
         var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
         var encodedToken = Uri.EscapeDataString(token);
         var frontendUrl = configuration["FrontendUrl"];
-        var confirmationLink = $"{frontendUrl}/auth/confirm-email?userId={user.Id}&token={encodedToken}";
+        var confirmationLink = $"{frontendUrl}/confirm-email?userId={user.Id}&token={encodedToken}";
 
         var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "confirm-email.html");
         var htmlTemplate = await File.ReadAllTextAsync(templatePath, cancellationToken);

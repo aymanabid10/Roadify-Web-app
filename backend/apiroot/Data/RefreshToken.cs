@@ -13,6 +13,5 @@ public class RefreshToken
     public DateTime? RevokedAt { get; set; }
     [MaxLength(200)] public string? RevokedByToken { get; set; }
 
-    [Timestamp]
-    public byte[] RowVersion { get; set; } = null!;
+    public uint RowVersion { get; set; }
 }

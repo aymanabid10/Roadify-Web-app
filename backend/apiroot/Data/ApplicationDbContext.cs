@@ -21,6 +21,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(e => e.Token).IsUnique();
             entity.Property(e => e.Token).IsRequired();
             entity.Property(e => e.UserId).IsRequired();
+            
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .HasColumnType("xid")
+                .HasColumnName("xmin");
         });
 
         builder.Entity<Vehicle>(entity =>
@@ -34,6 +39,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .HasConversion(
                     v => string.Join(',', v),
                     v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
+                )
+                .Metadata.SetValueComparer(
+                    new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
+                        (c1, c2) => c1.SequenceEqual(c2),
+                        c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                        c => c.ToList()
+                    )
                 );
         });
 
