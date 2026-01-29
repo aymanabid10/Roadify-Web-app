@@ -22,8 +22,63 @@ public class ListingController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new listing
+    /// Create a new sale listing
     /// </summary>
+    [HttpPost("sale")]
+    [ProducesResponseType(typeof(SaleListingResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateSaleListing([FromBody] CreateSaleListingRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var listing = await _listingService.CreateSaleListingAsync(request, userId, cancellationToken);
+            _logger.LogInformation("User {UserId} created sale listing {ListingId}", userId, listing.Id);
+            return CreatedAtAction(nameof(GetListing), new { id = listing.Id }, listing);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
+        }
+    }
+
+    /// <summary>
+    /// Create a new rent listing
+    /// </summary>
+    [HttpPost("rent")]
+    [ProducesResponseType(typeof(RentListingResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateRentListing([FromBody] CreateRentListingRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var listing = await _listingService.CreateRentListingAsync(request, userId, cancellationToken);
+            _logger.LogInformation("User {UserId} created rent listing {ListingId}", userId, listing.Id);
+            return CreatedAtAction(nameof(GetListing), new { id = listing.Id }, listing);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
+        }
+    }
+
+    /// <summary>
+    /// Create a new listing (Legacy - use /sale or /rent endpoints instead)
+    /// </summary>
+    [Obsolete("Use CreateSaleListing or CreateRentListing endpoints instead")]
     [HttpPost]
     [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -125,8 +180,75 @@ public class ListingController : ControllerBase
     }
 
     /// <summary>
-    /// Update a listing (owner only, DRAFT status only)
+    /// Update a sale listing (owner only, DRAFT status only)
     /// </summary>
+    [HttpPut("sale/{id}")]
+    [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateSaleListing(Guid id, [FromBody] UpdateSaleListingRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var listing = await _listingService.UpdateSaleListingAsync(id, request, userId, cancellationToken);
+            _logger.LogInformation("User {UserId} updated sale listing {ListingId}", userId, id);
+            return Ok(listing);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ErrorResponse.Error(ex.Message, StatusCodes.Status403Forbidden));
+        }
+    }
+
+    /// <summary>
+    /// Update a rent listing (owner only, DRAFT status only)
+    /// </summary>
+    [HttpPut("rent/{id}")]
+    [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateRentListing(Guid id, [FromBody] UpdateRentListingRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var listing = await _listingService.UpdateRentListingAsync(id, request, userId, cancellationToken);
+            _logger.LogInformation("User {UserId} updated rent listing {ListingId}", userId, id);
+            return Ok(listing);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ErrorResponse.Error(ex.Message, StatusCodes.Status403Forbidden));
+        }
+    }
+
+    /// <summary>
+    /// Update a listing (owner only, DRAFT status only) - Legacy endpoint
+    /// </summary>
+    [Obsolete("Use UpdateSaleListing or UpdateRentListing endpoints instead")]
     [HttpPut("{id}")]
     [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
