@@ -24,7 +24,7 @@ public abstract class CreateListingRequestBase
     public string? ContactPhone { get; set; }
 
     [Required]
-    public int VehicleId { get; set; }
+    public Guid VehicleId { get; set; }
 
     [Required]
     [MaxLength(100)]
