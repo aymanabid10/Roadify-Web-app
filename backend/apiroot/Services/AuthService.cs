@@ -14,6 +14,7 @@ public class AuthService(
     IEmailService emailService,
     IConfiguration configuration,
     ApplicationDbContext context,
+    IServiceScopeFactory serviceScopeFactory,
     ILogger<AuthService> logger) : IAuthService
 {
     public async Task RegisterAsync(RegisterRequest request,
@@ -144,14 +145,17 @@ public class AuthService(
     {
         try
         {
-            var tokensToDelete = await context.RefreshTokens
+            await using var scope = serviceScopeFactory.CreateAsyncScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            
+            var tokensToDelete = await dbContext.RefreshTokens
                 .Where(t => t.UserId == userId && (t.IsRevoked || t.ExpiresAt < DateTime.UtcNow))
                 .ToListAsync();
 
             if (tokensToDelete.Count > 0)
             {
-                context.RefreshTokens.RemoveRange(tokensToDelete);
-                await context.SaveChangesAsync();
+                dbContext.RefreshTokens.RemoveRange(tokensToDelete);
+                await dbContext.SaveChangesAsync();
             }
         }
         catch (Exception ex)
