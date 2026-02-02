@@ -4,12 +4,13 @@ using apiroot.Data;
 using apiroot.DTOs;
 using apiroot.Interfaces;
 using apiroot.Enums;
+using apiroot.Models;
 
 namespace apiroot.Services;
 
 public class AuthService(
-    UserManager<IdentityUser> userManager,
-    SignInManager<IdentityUser> signInManager,
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager,
     ITokenService tokenService,
     IEmailService emailService,
     IConfiguration configuration,
@@ -32,7 +33,7 @@ public class AuthService(
             throw new InvalidOperationException("Email already registered");
         }
 
-        var user = new IdentityUser
+        var user = new ApplicationUser
         {
             UserName = request.Username,
             Email = request.Email,
@@ -271,7 +272,7 @@ public class AuthService(
         logger.LogInformation("Password reset successfully for user {Username}", user.UserName);
     }
 
-    private async Task SendPasswordResetEmailAsync(IdentityUser user, CancellationToken cancellationToken)
+    private async Task SendPasswordResetEmailAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var encodedToken = Uri.EscapeDataString(token);
@@ -292,7 +293,7 @@ public class AuthService(
             cancellationToken);
     }
 
-    private async Task SendEmailConfirmationAsync(IdentityUser user, CancellationToken cancellationToken)
+    private async Task SendEmailConfirmationAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
         var encodedToken = Uri.EscapeDataString(token);

@@ -10,9 +10,9 @@ namespace apiroot.Services;
 public class ListingService : IListingService
 {
     private readonly ApplicationDbContext _context;
-    private readonly UserManager<IdentityUser> _userManager;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public ListingService(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+    public ListingService(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
     {
         _context = context;
         _userManager = userManager;
