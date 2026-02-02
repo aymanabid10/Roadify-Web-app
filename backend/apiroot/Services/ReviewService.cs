@@ -60,6 +60,17 @@ public class ReviewService : IReviewService
 
         return await _reviewRepository.GetAverageRatingAsync(userId);
     }
+
+    public async Task SoftDeleteUserReviewsAsync(string userId)
+    {
+        await _reviewRepository.SoftDeleteByUserIdAsync(userId);
+    }
+
+    public async Task RestoreUserReviewsAsync(string userId)
+    {
+        await _reviewRepository.RestoreByUserIdAsync(userId);
+    }
+
     //Private Helpers
 
     private async Task<Review> GetAndValidateOwnerAsync(string id, Guid currentUserId)
