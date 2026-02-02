@@ -4,7 +4,7 @@ using apiroot.Models;
 
 namespace apiroot.Data;
 
-public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext(options)
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
@@ -42,7 +42,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 )
                 .Metadata.SetValueComparer(
                     new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
-                        (c1, c2) => c1.SequenceEqual(c2),
+                        (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
                         c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
                         c => c.ToList()
                     )
@@ -77,7 +77,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasOne(e => e.Owner)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
           
             entity.HasOne(e => e.Expertise)
                 .WithOne(e => e.Listing)
@@ -100,7 +100,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasOne(e => e.Expert)
                 .WithMany()
                 .HasForeignKey(e => e.ExpertId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // Global query filters for soft delete (must be configured after all entity configurations)
+        builder.Entity<ApplicationUser>().HasQueryFilter(u => !u.IsDeleted);
+        builder.Entity<Vehicle>().HasQueryFilter(v => !v.IsDeleted);
+        builder.Entity<Listing>().HasQueryFilter(l => !l.IsDeleted);
+        builder.Entity<Expertise>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<Media>().HasQueryFilter(m => !m.IsDeleted);
     }
 }
