@@ -29,21 +29,19 @@ public class UserService : IUserService
 
     public async Task<PaginatedResponse<UserResponseDto>> GetPaginatedUsersAsync(UserFilterRequest filterRequest, string? currentUserId = null)
     {
-        // Start with query that includes deleted users if requested
+        // Use a persistent query that doesn't change after filter application
         var query = _context.Users.IgnoreQueryFilters().AsQueryable();
 
-        // Apply IsDeleted filter
+        // Apply filters to IQueryable
         if (filterRequest.IsDeleted.HasValue)
         {
             query = query.Where(u => u.IsDeleted == filterRequest.IsDeleted.Value);
         }
         else
         {
-            // By default, exclude deleted users
             query = query.Where(u => !u.IsDeleted);
         }
 
-        // Apply search term filter (username or email)
         if (!string.IsNullOrWhiteSpace(filterRequest.SearchTerm))
         {
             var searchTerm = filterRequest.SearchTerm.ToLower();
@@ -52,39 +50,49 @@ public class UserService : IUserService
                 (u.Email != null && u.Email.ToLower().Contains(searchTerm)));
         }
 
-        // Apply email confirmed filter
         if (filterRequest.EmailConfirmed.HasValue)
         {
             query = query.Where(u => u.EmailConfirmed == filterRequest.EmailConfirmed.Value);
         }
 
-        // Order by creation date (most recent first)
-        query = query.OrderByDescending(u => u.Id);
+        // Apply role filter on the DB level via Identity tables to ensure pagination works correctly
+        if (!string.IsNullOrWhiteSpace(filterRequest.Role))
+        {
+            var roleName = filterRequest.Role.ToUpper();
+            query = from user in query
+                    join userRole in _context.UserRoles on user.Id equals userRole.UserId
+                    join role in _context.Roles on userRole.RoleId equals role.Id
+                    where role.Name == roleName
+                    select user;
+        }
 
-        // Execute pagination
+        // Filter out current user and skip ADMINs if requested (and not specifically searching for ADMINs)
+        if (!string.IsNullOrWhiteSpace(currentUserId))
+        {
+            // Specifically exclude the current user
+            query = query.Where(u => u.Id != currentUserId);
+            
+            // Only exclude all ADMINs if we aren't specifically filtering for the ADMIN role
+            if (string.IsNullOrWhiteSpace(filterRequest.Role) || filterRequest.Role.ToUpper() != "ADMIN")
+            {
+                query = from user in query
+                        where !_context.UserRoles.Any(ur => 
+                            ur.UserId == user.Id && 
+                            _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == "ADMIN"))
+                        select user;
+            }
+        }
+
+        // Order and Paginate
+        query = query.OrderByDescending(u => u.UserName);
         var paginatedResult = await PaginationHelper.PaginateAsync(query, filterRequest.Page, filterRequest.PageSize);
 
-        // Map to DTOs with roles
+        // Map to DTOs and fetch roles in bulk for the page
         var userDtos = new List<UserResponseDto>();
         foreach (var user in paginatedResult.Data)
         {
             var roles = await _userManager.GetRolesAsync(user);
             userDtos.Add(MapToUserResponseDto(user, roles.ToList()));
-        }
-
-        // Apply role filter after getting roles (since roles are not in the User table)
-        if (!string.IsNullOrWhiteSpace(filterRequest.Role))
-        {
-            userDtos = userDtos.Where(u => u.Roles.Contains(filterRequest.Role, StringComparer.OrdinalIgnoreCase)).ToList();
-        }
-
-        // If currentUserId is provided, filter out admins and the current user
-        if (!string.IsNullOrWhiteSpace(currentUserId))
-        {
-            userDtos = userDtos.Where(u => 
-                u.Id != currentUserId && 
-                !u.Roles.Contains("ADMIN", StringComparer.OrdinalIgnoreCase)
-            ).ToList();
         }
 
         return new PaginatedResponse<UserResponseDto>
@@ -209,16 +217,19 @@ public class UserService : IUserService
             return (false, string.Join(", ", updateResult.Errors.Select(e => e.Description)));
 
         // Update roles if provided
-        if (updateDto.Roles != null && updateDto.Roles.Count > 0)
+        if (updateDto.Roles != null)
         {
             var currentRoles = await _userManager.GetRolesAsync(user);
             var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
             if (!removeResult.Succeeded)
                 return (false, "Failed to remove old roles");
 
-            var addResult = await _userManager.AddToRolesAsync(user, updateDto.Roles);
-            if (!addResult.Succeeded)
-                return (false, "Failed to add new roles");
+            if (updateDto.Roles.Count > 0)
+            {
+                var addResult = await _userManager.AddToRolesAsync(user, updateDto.Roles);
+                if (!addResult.Succeeded)
+                    return (false, "Failed to add new roles");
+            }
         }
 
         return (true, null);
