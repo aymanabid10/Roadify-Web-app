@@ -221,6 +221,7 @@ using (var scope = app.Services.CreateScope())
 
     await SeedRolesAsync(roleManager);
     await SeedAdminUserAsync(userManager, dbContext);
+    await SeedUsersAsync(userManager, dbContext);
 }
 
 app.Run();
@@ -287,5 +288,50 @@ async Task SeedAdminUserAsync(UserManager<ApplicationUser> userManager, Applicat
     {
         app.Logger.LogError("Failed to create admin user: {Errors}",
             string.Join(", ", result.Errors.Select(e => e.Description)));
+    }
+}
+
+async Task SeedUsersAsync(UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext)
+{
+    app.Logger.LogInformation("Seeding 100 users...");
+    for (int i = 1; i <= 100; i++)
+    {
+        var email = $"user{i}@roadify.com";
+        var username = $"user{i}";
+
+        var existingUser = await dbContext.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Email == email || u.UserName == username);
+
+        if (existingUser != null) continue;
+
+        var user = new ApplicationUser
+        {
+            UserName = username,
+            Email = email,
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(user, "Password123!");
+        if (result.Succeeded)
+        {
+            await userManager.AddToRoleAsync(user, nameof(UserRole.USER));
+
+            // Make every 4th user an EXPERT for variety
+            if (i % 4 == 0)
+            {
+                await userManager.AddToRoleAsync(user, nameof(UserRole.EXPERT));
+                app.Logger.LogInformation("Expert user {Username} seeded.", username);
+            }
+            else
+            {
+                app.Logger.LogInformation("Standard user {Username} seeded.", username);
+            }
+        }
+        else
+        {
+            app.Logger.LogError("Failed to seed user {Username}: {Errors}",
+                username, string.Join(", ", result.Errors.Select(e => e.Description)));
+        }
     }
 }
