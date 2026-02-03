@@ -29,6 +29,7 @@ export default function AdminPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
   const [showDeletedFilter, setShowDeletedFilter] = useState<boolean | undefined>(false);
 
@@ -49,13 +50,22 @@ export default function AdminPage() {
     }
   }, [authLoading, isAuthenticated, isAdmin, router]);
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 0.5 second debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
       const filters: UserFilterRequest = {
         page,
         pageSize,
-        searchTerm: searchTerm || undefined,
+        searchTerm: debouncedSearchTerm || undefined,
         role: roleFilter,
         isDeleted: showDeletedFilter,
       };
@@ -70,7 +80,7 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, searchTerm, roleFilter, showDeletedFilter]);
+  }, [page, pageSize, debouncedSearchTerm, roleFilter, showDeletedFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -234,61 +244,6 @@ export default function AdminPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-          <CardDescription>Filter users by role and status</CardDescription>
-        </CardHeader>
-        <CardContent className="flex gap-4">
-          <div className="flex-1">
-            <Select
-              value={roleFilter || "all"}
-              onValueChange={(value) => {
-                setRoleFilter(value === "all" ? undefined : value);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="USER">USER</SelectItem>
-                <SelectItem value="ADMIN">ADMIN</SelectItem>
-                <SelectItem value="EXPERT">EXPERT</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1">
-            <Select
-              value={
-                showDeletedFilter === undefined
-                  ? "all"
-                  : showDeletedFilter
-                  ? "deleted"
-                  : "active"
-              }
-              onValueChange={(value) => {
-                setShowDeletedFilter(
-                  value === "all" ? undefined : value === "deleted"
-                );
-                setPage(1);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                <SelectItem value="active">Active Only</SelectItem>
-                <SelectItem value="deleted">Deleted Only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Users Table */}
       <Card>
         <CardHeader>
@@ -298,25 +253,29 @@ export default function AdminPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-[400px] w-full" />
-            </div>
-          ) : (
-            <UsersDataTable
-              columns={columns}
-              data={users}
-              searchPlaceholder="Search by username or email..."
-              onSearchChange={handleSearchChange}
-              pagination={{
-                pageIndex: page - 1,
-                pageSize,
-                totalPages,
-                onPageChange: (newPage) => setPage(newPage + 1),
-              }}
-            />
-          )}
+          <UsersDataTable
+            columns={columns}
+            data={users}
+            isLoading={isLoading}
+            searchPlaceholder="Search by username or email..."
+            onSearchChange={handleSearchChange}
+            roleFilter={roleFilter}
+            onRoleFilterChange={(value) => {
+              setRoleFilter(value);
+              setPage(1);
+            }}
+            statusFilter={showDeletedFilter}
+            onStatusFilterChange={(value) => {
+              setShowDeletedFilter(value);
+              setPage(1);
+            }}
+            pagination={{
+              pageIndex: page - 1,
+              pageSize,
+              totalPages,
+              onPageChange: (newPage) => setPage(newPage + 1),
+            }}
+          />
         </CardContent>
       </Card>
 
