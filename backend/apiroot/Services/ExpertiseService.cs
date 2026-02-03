@@ -66,16 +66,10 @@ public class ExpertiseService : IExpertiseService
 
         _context.Expertises.Add(expertise);
 
-        // Update listing status based on approval
-        if (request.IsApproved)
-        {
-            listing.Publish();
-        }
-        else
-        {
-            listing.Reject();
-        }
-
+        // NOTE: Listing status is NOT changed here
+        // Expert must explicitly call ApproveListingAsync or RejectListingAsync
+        // This allows experts to: create expertise → upload documents → then approve/reject
+        
         await _context.SaveChangesAsync(cancellationToken);
 
         return await MapToResponseAsync(expertise, cancellationToken);
@@ -100,6 +94,7 @@ public class ExpertiseService : IExpertiseService
     {
         var expertise = await _context.Expertises
             .Include(e => e.Listing)
+                .ThenInclude(l => l.Owner)
             .FirstOrDefaultAsync(e => e.Id == expertiseId, cancellationToken);
 
         if (expertise == null)
@@ -114,6 +109,30 @@ public class ExpertiseService : IExpertiseService
 
         expertise.Approve();
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Send approval notification email
+        if (expertise.Listing?.Owner?.Email != null)
+        {
+            try
+            {
+                var subject = "Your listing has been approved!";
+                var body = $@"
+                    <h2>Listing Approved</h2>
+                    <p>Dear {expertise.Listing.Owner.UserName},</p>
+                    <p>Great news! Your listing <strong>{expertise.Listing.Title}</strong> has been approved by our expert team.</p>
+                    <p><strong>Status:</strong> Published</p>
+                    <p><strong>Condition Score:</strong> {expertise.ConditionScore}/100</p>
+                    {(expertise.EstimatedValue.HasValue ? $"<p><strong>Estimated Value:</strong> {expertise.EstimatedValue:C}</p>" : "")}
+                    <p>Your listing is now live and visible to potential buyers/renters.</p>
+                ";
+                await _emailService.SendAsync(expertise.Listing.Owner.Email, subject, body, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Log but don't fail the operation if email fails
+                Console.WriteLine($"Failed to send approval email: {ex.Message}");
+            }
+        }
 
         return await MapToResponseAsync(expertise, cancellationToken);
     }

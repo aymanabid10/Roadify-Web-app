@@ -651,6 +651,11 @@ public class ListingService : IListingService
                 TechnicalReport = listing.Expertise.TechnicalReport,
                 DocumentUrl = listing.Expertise.DocumentUrl,
                 IsApproved = listing.Expertise.IsApproved,
+                ConditionScore = listing.Expertise.ConditionScore,
+                EstimatedValue = listing.Expertise.EstimatedValue,
+                InspectionDate = listing.Expertise.InspectionDate,
+                RejectionReason = listing.Expertise.RejectionReason,
+                RejectionFeedback = listing.Expertise.RejectionFeedback,
                 CreatedAt = listing.Expertise.CreatedAt
             };
         }
