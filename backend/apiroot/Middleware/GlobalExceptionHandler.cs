@@ -35,10 +35,10 @@ public class GlobalExceptionHandler
 
         var (statusCode, message) = exception switch
         {
-            InvalidOperationException => (HttpStatusCode.BadRequest, "The request could not be processed"),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized access"),
+            InvalidOperationException ex => (HttpStatusCode.BadRequest, ex.Message),
+            UnauthorizedAccessException ex => (HttpStatusCode.Unauthorized, ex.Message),
             KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found"),
-            ArgumentException => (HttpStatusCode.BadRequest, "Invalid request"),
+            ArgumentException ex => (HttpStatusCode.BadRequest, ex.Message),
             SmtpException => (HttpStatusCode.ServiceUnavailable, "Email service is temporarily unavailable"),
             _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred")
         };

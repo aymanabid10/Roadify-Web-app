@@ -57,10 +57,18 @@ public class AuthService(
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        var user = await userManager.FindByNameAsync(request.Username);
+        var user = await userManager.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.UserName == request.Username, cancellationToken);
+
         if (user == null)
         {
-            throw new UnauthorizedAccessException("Invalid credentials");
+            throw new UnauthorizedAccessException("Invalid username or password");
+        }
+
+        if (user.IsDeleted)
+        {
+            throw new UnauthorizedAccessException("User deleted by an admin.");
         }
 
         var result = await signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
@@ -71,7 +79,7 @@ public class AuthService(
 
         if (!result.Succeeded)
         {
-            throw new UnauthorizedAccessException("Invalid credentials");
+            throw new UnauthorizedAccessException("Invalid username or password");
         }
 
         if (!user.EmailConfirmed)
