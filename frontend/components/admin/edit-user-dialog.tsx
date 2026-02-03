@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserResponseDto, UpdateUserDto } from "@/lib/api";
 import {
   Dialog,
@@ -16,6 +16,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { RiCloseLine, RiAddLine } from "@remixicon/react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface EditUserDialogProps {
   user: UserResponseDto | null;
@@ -35,7 +42,7 @@ export function EditUserDialog({
   const [newRole, setNewRole] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleOpenChange = (open: boolean) => {
+  useEffect(() => {
     if (open && user) {
       setFormData({
         userName: user.userName || undefined,
@@ -48,6 +55,9 @@ export function EditUserDialog({
       });
       setRoles(user.roles || []);
     }
+  }, [open, user]);
+
+  const handleOpenChange = (open: boolean) => {
     onOpenChange(open);
   };
 
@@ -70,7 +80,7 @@ export function EditUserDialog({
     try {
       await onSave(user.id, {
         ...formData,
-        roles: roles.length > 0 ? roles : undefined,
+        roles: roles,
       });
       onOpenChange(false);
     } finally {
@@ -134,33 +144,41 @@ export function EditUserDialog({
             <Label>Roles</Label>
             <div className="flex gap-2 flex-wrap mb-2">
               {roles.map((role) => (
-                <Badge key={role} variant="outline" className="gap-1">
+                <Badge
+                  key={role}
+                  variant={role === "ADMIN" ? "default" : "outline"}
+                  className="gap-1.5 py-1 px-2 text-xs font-medium"
+                >
                   {role}
                   <button
                     type="button"
                     onClick={() => handleRemoveRole(role)}
-                    className="ml-1"
+                    className="ml-0.5 rounded-full outline-none ring-offset-background transition-colors hover:text-destructive focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   >
-                    <RiCloseLine className="h-3 w-3" />
+                    <RiCloseLine className="h-3.5 w-3.5" />
+                    <span className="sr-only">Remove {role} role</span>
                   </button>
                 </Badge>
               ))}
             </div>
             <div className="flex gap-2">
-              <Input
-                placeholder="Add role (USER, ADMIN, EXPERT)"
+              <Select
                 value={newRole}
-                onChange={(e) => setNewRole(e.target.value.toUpperCase())}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddRole();
+                onValueChange={(value) => {
+                  if (value && !roles.includes(value)) {
+                    setRoles([...roles, value]);
                   }
                 }}
-              />
-              <Button type="button" onClick={handleAddRole} variant="outline">
-                <RiAddLine className="h-4 w-4" />
-              </Button>
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Add a role..." />
+                </SelectTrigger>
+                <SelectContent position="popper" sideOffset={4}>
+                  <SelectItem value="USER">User</SelectItem>
+                  <SelectItem value="EXPERT">Expert</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
