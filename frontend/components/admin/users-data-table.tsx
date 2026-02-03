@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { RiSearchLine } from "@remixicon/react";
+import { RiFilter2Line, RiSearchLine, RiLoader4Line } from "@remixicon/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,13 +31,25 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { RiFilter2Line } from "@remixicon/react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  isLoading?: boolean;
   searchPlaceholder?: string;
   onSearchChange?: (value: string) => void;
+  roleFilter?: string;
+  onRoleFilterChange?: (value: string | undefined) => void;
+  statusFilter?: boolean | undefined;
+  onStatusFilterChange?: (value: boolean | undefined) => void;
   pagination?: {
     pageIndex: number;
     pageSize: number;
@@ -49,13 +61,21 @@ interface DataTableProps<TData, TValue> {
 export function UsersDataTable<TData, TValue>({
   columns,
   data,
+  isLoading,
   searchPlaceholder = "Search...",
   onSearchChange,
+  roleFilter,
+  onRoleFilterChange,
+  statusFilter,
+  onStatusFilterChange,
   pagination,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    [],
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [searchValue, setSearchValue] = React.useState("");
 
@@ -85,21 +105,73 @@ export function UsersDataTable<TData, TValue>({
       setSearchValue(value);
       onSearchChange?.(value);
     },
-    [onSearchChange]
+    [onSearchChange],
   );
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(event) => handleSearchChange(event.target.value)}
-            className="pl-9"
-          />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-1 items-center gap-3 w-full max-w-2xl">
+          <div className="relative flex-1">
+            <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              className="pl-9"
+            />
+            {isLoading && (
+              <RiLoader4Line className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="w-[130px]">
+              <Select
+                value={roleFilter || "all"}
+                onValueChange={(value) =>
+                  onRoleFilterChange?.(value === "all" ? undefined : value)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent position="popper" sideOffset={4}>
+                  <SelectItem value="all">All roles</SelectItem>
+                  <SelectItem value="USER">User</SelectItem>
+                  <SelectItem value="EXPERT">Expert</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-[130px]">
+              <Select
+                value={
+                  statusFilter === undefined
+                    ? "all"
+                    : statusFilter
+                      ? "deleted"
+                      : "active"
+                }
+                onValueChange={(value) => {
+                  onStatusFilterChange?.(
+                    value === "all" ? undefined : value === "deleted",
+                  );
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Users" />
+                </SelectTrigger>
+                <SelectContent position="popper" sideOffset={4}>
+                  <SelectItem value="all">All users</SelectItem>
+                  <SelectItem value="active">Active only</SelectItem>
+                  <SelectItem value="deleted">Deleted only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
@@ -107,19 +179,26 @@ export function UsersDataTable<TData, TValue>({
               Columns
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-[200px]">
             {table
               .getAllColumns()
               .filter((column) => column.getCanHide())
               .map((column) => {
+                const header = column.columnDef.header;
+                const label = typeof header === "string" 
+                  ? header 
+                  : column.id.charAt(0).toUpperCase() + column.id.slice(1);
+
                 return (
                   <DropdownMenuCheckboxItem
                     key={column.id}
                     className="capitalize"
                     checked={column.getIsVisible()}
-                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                    onCheckedChange={(value) =>
+                      column.toggleVisibility(!!value)
+                    }
                   >
-                    {column.id}
+                    {label}
                   </DropdownMenuCheckboxItem>
                 );
               })}
@@ -139,7 +218,7 @@ export function UsersDataTable<TData, TValue>({
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   );
@@ -148,7 +227,17 @@ export function UsersDataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  {columns.map((_, j) => (
+                    <TableCell key={j}>
+                      <Skeleton className="h-6 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -156,14 +245,20 @@ export function UsersDataTable<TData, TValue>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>
@@ -188,7 +283,9 @@ export function UsersDataTable<TData, TValue>({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => pagination.onPageChange(pagination.pageIndex - 1)}
+                onClick={() =>
+                  pagination.onPageChange(pagination.pageIndex - 1)
+                }
                 disabled={pagination.pageIndex === 0}
               >
                 Previous
@@ -196,7 +293,9 @@ export function UsersDataTable<TData, TValue>({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => pagination.onPageChange(pagination.pageIndex + 1)}
+                onClick={() =>
+                  pagination.onPageChange(pagination.pageIndex + 1)
+                }
                 disabled={pagination.pageIndex >= pagination.totalPages - 1}
               >
                 Next
