@@ -63,9 +63,7 @@ export function Navbar() {
                 </Button>
               </Link>
               <Link href="/register">
-                <Button size="sm">
-                  Get started
-                </Button>
+                <Button size="sm">Get started</Button>
               </Link>
             </>
           )}
@@ -122,9 +120,7 @@ export function Navbar() {
                   </Button>
                 </Link>
                 <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full">
-                    Get started
-                  </Button>
+                  <Button className="w-full">Get started</Button>
                 </Link>
               </>
             )}
