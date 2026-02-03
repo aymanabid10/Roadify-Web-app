@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using apiroot.DTOs;
 using apiroot.Interfaces;
@@ -190,13 +191,31 @@ public class ExpertiseController : ControllerBase
 
         try
         {
-            // Use MediaService to handle the file upload
+            // First verify the expertise exists and get its vehicle ID
+            var context = HttpContext.RequestServices.GetRequiredService<apiroot.Data.ApplicationDbContext>();
+            var expertise = await context.Expertises
+                .Include(e => e.Listing)
+                    .ThenInclude(l => l.Vehicle)
+                .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+
+            if (expertise == null)
+            {
+                return NotFound(ErrorResponse.Error("Expertise not found", StatusCodes.Status404NotFound));
+            }
+
+            if (expertise.ExpertId != userId)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, 
+                    ErrorResponse.Error("You can only upload documents to your own expertise reviews", StatusCodes.Status403Forbidden));
+            }
+
+            // Use MediaService to handle the file upload with the listing's vehicle ID
             var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
             
             var (success, url, errorMessage, statusCode) = await mediaService.UploadMediaAsync(
                 file, 
                 Enums.MediaType.REPORT_DOCUMENT, 
-                Guid.Empty, // Not tied to a vehicle
+                expertise.Listing.VehicleId, // Use the vehicle from the listing
                 userId);
 
             if (!success || url == null)
@@ -205,9 +224,9 @@ public class ExpertiseController : ControllerBase
                     ErrorResponse.Error(errorMessage ?? "Failed to upload document", statusCode ?? StatusCodes.Status500InternalServerError));
             }
 
-            var expertise = await _expertiseService.UploadDocumentAsync(id, userId, url, cancellationToken);
+            var result = await _expertiseService.UploadDocumentAsync(id, userId, url, cancellationToken);
             _logger.LogInformation("Expert {ExpertId} uploaded document to expertise {ExpertiseId}", userId, id);
-            return Ok(expertise);
+            return Ok(result);
         }
         catch (InvalidOperationException ex)
         {
