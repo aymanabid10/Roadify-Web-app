@@ -33,6 +33,12 @@ public class Expertise
     [Required]
     public bool IsApproved { get; set; }
 
+    [MaxLength(200)]
+    public string? RejectionReason { get; set; }
+
+    [MaxLength(1000)]
+    public string? RejectionFeedback { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
@@ -49,9 +55,11 @@ public class Expertise
         Listing?.Publish();
     }
 
-    public void Reject()
+    public void Reject(string? reason = null, string? feedback = null)
     {
         IsApproved = false;
+        RejectionReason = reason;
+        RejectionFeedback = feedback;
         Listing?.Reject();
     }
 }

@@ -11,11 +11,16 @@ public class ExpertiseService : IExpertiseService
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<IdentityUser> _userManager;
+    private readonly IEmailService _emailService;
 
-    public ExpertiseService(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+    public ExpertiseService(
+        ApplicationDbContext context, 
+        UserManager<IdentityUser> userManager,
+        IEmailService emailService)
     {
         _context = context;
         _userManager = userManager;
+        _emailService = emailService;
     }
 
     public async Task<ExpertiseResponse> CreateExpertiseAsync(CreateExpertiseRequest request, string expertId, CancellationToken cancellationToken = default)
@@ -113,10 +118,11 @@ public class ExpertiseService : IExpertiseService
         return await MapToResponseAsync(expertise, cancellationToken);
     }
 
-    public async Task<ExpertiseResponse> RejectListingAsync(Guid expertiseId, string expertId, CancellationToken cancellationToken = default)
+    public async Task<ExpertiseResponse> RejectListingAsync(Guid expertiseId, string expertId, string? reason = null, string? feedback = null, CancellationToken cancellationToken = default)
     {
         var expertise = await _context.Expertises
             .Include(e => e.Listing)
+                .ThenInclude(l => l.Owner)
             .FirstOrDefaultAsync(e => e.Id == expertiseId, cancellationToken);
 
         if (expertise == null)
@@ -129,7 +135,52 @@ public class ExpertiseService : IExpertiseService
             throw new UnauthorizedAccessException("You can only reject your own expertise reviews");
         }
 
-        expertise.Reject();
+        expertise.Reject(reason, feedback);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Send rejection notification email
+        if (expertise.Listing?.Owner?.Email != null)
+        {
+            try
+            {
+                var subject = "Your listing has been reviewed";
+                var body = $@"
+                    <h2>Listing Review Result</h2>
+                    <p>Dear {expertise.Listing.Owner.UserName},</p>
+                    <p>Your listing <strong>{expertise.Listing.Title}</strong> has been reviewed by our expert team.</p>
+                    <p><strong>Status:</strong> Rejected</p>
+                    {(reason != null ? $"<p><strong>Reason:</strong> {reason}</p>" : "")}
+                    {(feedback != null ? $"<p><strong>Feedback:</strong> {feedback}</p>" : "")}
+                    <p>Please review the feedback and make necessary adjustments before resubmitting.</p>
+                ";
+                await _emailService.SendAsync(expertise.Listing.Owner.Email, subject, body, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Log but don't fail the operation if email fails
+                Console.WriteLine($"Failed to send rejection email: {ex.Message}");
+            }
+        }
+
+        return await MapToResponseAsync(expertise, cancellationToken);
+    }
+
+    public async Task<ExpertiseResponse> UploadDocumentAsync(Guid expertiseId, string expertId, string documentUrl, CancellationToken cancellationToken = default)
+    {
+        var expertise = await _context.Expertises
+            .FirstOrDefaultAsync(e => e.Id == expertiseId, cancellationToken);
+
+        if (expertise == null)
+        {
+            throw new InvalidOperationException("Expertise not found");
+        }
+
+        if (expertise.ExpertId != expertId)
+        {
+            throw new UnauthorizedAccessException("You can only upload documents to your own expertise reviews");
+        }
+
+        expertise.DocumentUrl = documentUrl;
         await _context.SaveChangesAsync(cancellationToken);
 
         return await MapToResponseAsync(expertise, cancellationToken);
@@ -155,6 +206,8 @@ public class ExpertiseService : IExpertiseService
             ConditionScore = expertise.ConditionScore,
             EstimatedValue = expertise.EstimatedValue,
             InspectionDate = expertise.InspectionDate,
+            RejectionReason = expertise.RejectionReason,
+            RejectionFeedback = expertise.RejectionFeedback,
             CreatedAt = expertise.CreatedAt
         };
     }

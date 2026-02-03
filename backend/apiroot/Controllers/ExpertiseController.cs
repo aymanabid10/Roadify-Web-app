@@ -105,14 +105,14 @@ public class ExpertiseController : ControllerBase
     }
 
     /// <summary>
-    /// Reject a listing (expert who created the expertise only)
+    /// Reject a listing with reason and feedback (expert who created the expertise only)
     /// </summary>
     [HttpPost("{id}/reject")]
     [ProducesResponseType(typeof(ExpertiseResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RejectListing(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> RejectListing(Guid id, [FromBody] RejectExpertiseRequest? request, CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
@@ -122,8 +122,66 @@ public class ExpertiseController : ControllerBase
 
         try
         {
-            var expertise = await _expertiseService.RejectListingAsync(id, userId, cancellationToken);
-            _logger.LogInformation("Expert {ExpertId} rejected listing via expertise {ExpertiseId}", userId, id);
+            var expertise = await _expertiseService.RejectListingAsync(
+                id, 
+                userId, 
+                request?.Reason, 
+                request?.Feedback, 
+                cancellationToken);
+            _logger.LogInformation("Expert {ExpertId} rejected listing via expertise {ExpertiseId} with reason: {Reason}", 
+                userId, id, request?.Reason);
+            return Ok(expertise);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ErrorResponse.Error(ex.Message, StatusCodes.Status403Forbidden));
+        }
+    }
+
+    /// <summary>
+    /// Upload a document to an expertise report (expert who created the expertise only)
+    /// </summary>
+    [HttpPost("{id}/upload-document")]
+    [ProducesResponseType(typeof(ExpertiseResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UploadDocument(Guid id, [FromForm] IFormFile file, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(ErrorResponse.Error("No file provided", StatusCodes.Status400BadRequest));
+        }
+
+        try
+        {
+            // Use MediaService to handle the file upload
+            var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
+            
+            var (success, url, errorMessage, statusCode) = await mediaService.UploadMediaAsync(
+                file, 
+                Enums.MediaType.REPORT_DOCUMENT, 
+                Guid.Empty, // Not tied to a vehicle
+                userId);
+
+            if (!success || url == null)
+            {
+                return StatusCode(statusCode ?? StatusCodes.Status500InternalServerError, 
+                    ErrorResponse.Error(errorMessage ?? "Failed to upload document", statusCode ?? StatusCodes.Status500InternalServerError));
+            }
+
+            var expertise = await _expertiseService.UploadDocumentAsync(id, userId, url, cancellationToken);
+            _logger.LogInformation("Expert {ExpertId} uploaded document to expertise {ExpertiseId}", userId, id);
             return Ok(expertise);
         }
         catch (InvalidOperationException ex)

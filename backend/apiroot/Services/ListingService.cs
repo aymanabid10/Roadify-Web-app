@@ -12,11 +12,16 @@ public class ListingService : IListingService
 {
     private readonly ApplicationDbContext _context;
     private readonly UserManager<IdentityUser> _userManager;
+    private readonly IEmailService _emailService;
 
-    public ListingService(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+    public ListingService(
+        ApplicationDbContext context, 
+        UserManager<IdentityUser> userManager,
+        IEmailService emailService)
     {
         _context = context;
         _userManager = userManager;
+        _emailService = emailService;
     }
 
     // New type-specific create methods
@@ -223,6 +228,18 @@ public class ListingService : IListingService
                 query = query.OfType<SaleListing>();
             }
             else if (filter.ListingType.Value == ListingType.RENT)
+            {
+                query = query.OfType<RentListing>();
+            }
+        }
+        else if (!string.IsNullOrEmpty(filter.ListingTypeString))
+        {
+            // Support string-based filtering for easier API usage
+            if (filter.ListingTypeString.Equals("SALE", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.OfType<SaleListing>();
+            }
+            else if (filter.ListingTypeString.Equals("RENT", StringComparison.OrdinalIgnoreCase))
             {
                 query = query.OfType<RentListing>();
             }
@@ -500,7 +517,9 @@ public class ListingService : IListingService
 
     public async Task<ListingResponse> SubmitForReviewAsync(Guid id, string userId, CancellationToken cancellationToken = default)
     {
-        var listing = await _context.Listings.FindAsync(new object[] { id }, cancellationToken);
+        var listing = await _context.Listings
+            .Include(l => l.Owner)
+            .FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
 
         if (listing == null)
         {
@@ -514,6 +533,53 @@ public class ListingService : IListingService
 
         listing.SubmitForReview();
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Send confirmation email to user
+        if (listing.Owner?.Email != null)
+        {
+            try
+            {
+                var subject = "Your listing has been submitted for review";
+                var body = $@"
+                    <h2>Listing Submitted Successfully</h2>
+                    <p>Dear {listing.Owner.UserName},</p>
+                    <p>Your listing <strong>{listing.Title}</strong> has been submitted for expert review.</p>
+                    <p>We will notify you once our expert team has reviewed your listing.</p>
+                    <p>This typically takes 1-2 business days.</p>
+                ";
+                await _emailService.SendAsync(listing.Owner.Email, subject, body, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Log but don't fail the operation if email fails
+                Console.WriteLine($"Failed to send submission email: {ex.Message}");
+            }
+        }
+
+        // Notify experts about new listing to review
+        try
+        {
+            var experts = await _userManager.GetUsersInRoleAsync("EXPERT");
+            foreach (var expert in experts.Where(e => !string.IsNullOrEmpty(e.Email)))
+            {
+                var subject = "New listing awaiting review";
+                var body = $@"
+                    <h2>New Listing Review Required</h2>
+                    <p>Dear Expert,</p>
+                    <p>A new listing requires your review:</p>
+                    <p><strong>Title:</strong> {listing.Title}</p>
+                    <p><strong>Type:</strong> {listing.GetListingType()}</p>
+                    <p><strong>Location:</strong> {listing.Location}</p>
+                    <p>Please login to review and approve or reject this listing.</p>
+                ";
+                await _emailService.SendAsync(expert.Email!, subject, body, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail the operation if email fails
+            Console.WriteLine($"Failed to send expert notification emails: {ex.Message}");
+        }
 
         return await MapToResponseAsync(listing, cancellationToken);
     }
