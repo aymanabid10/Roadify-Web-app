@@ -106,17 +106,25 @@ public class ListingController : ControllerBase
     /// <summary>
     /// Get a listing by ID
     /// </summary>
+    /// <remarks>
+    /// Public access for PUBLISHED listings. DRAFT, PENDING_REVIEW, and REJECTED listings are only visible to:
+    /// - The listing owner
+    /// - Users with ADMIN role
+    /// - Users with EXPERT role
+    /// </remarks>
     [HttpGet("{id}")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetListing(Guid id, CancellationToken cancellationToken)
     {
-        var listing = await _listingService.GetListingByIdAsync(id, cancellationToken);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var listing = await _listingService.GetListingByIdAsync(id, userId, cancellationToken);
         
         if (listing == null)
         {
-            return NotFound(new { message = "Listing not found" });
+            return NotFound(new { message = "Listing not found or you don't have permission to view it" });
         }
 
         return Ok(listing);

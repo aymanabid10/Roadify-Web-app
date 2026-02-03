@@ -19,6 +19,7 @@ public interface IListingService
     
     // Common methods
     Task<ListingResponse?> GetListingByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ListingResponse?> GetListingByIdAsync(Guid id, string? currentUserId, CancellationToken cancellationToken = default);
     Task<PaginatedResponse<ListingResponse>> GetPublicListingsAsync(ListingFilterRequest filter, CancellationToken cancellationToken = default);
     Task<PaginatedResponse<ListingResponse>> GetAllListingsAsync(ListingFilterRequest filter, CancellationToken cancellationToken = default);
     Task DeleteListingAsync(Guid id, string userId, CancellationToken cancellationToken = default);

@@ -187,6 +187,7 @@ public class ExpertiseService : IExpertiseService
     public async Task<ExpertiseResponse> UploadDocumentAsync(Guid expertiseId, string expertId, string documentUrl, CancellationToken cancellationToken = default)
     {
         var expertise = await _context.Expertises
+            .Include(e => e.Listing)
             .FirstOrDefaultAsync(e => e.Id == expertiseId, cancellationToken);
 
         if (expertise == null)
@@ -197,6 +198,17 @@ public class ExpertiseService : IExpertiseService
         if (expertise.ExpertId != expertId)
         {
             throw new UnauthorizedAccessException("You can only upload documents to your own expertise reviews");
+        }
+
+        // Prevent document upload after listing has been approved or rejected
+        if (expertise.Listing.Status == ListingStatus.PUBLISHED)
+        {
+            throw new InvalidOperationException("Cannot upload documents to approved listings. The listing has already been published.");
+        }
+
+        if (expertise.Listing.Status == ListingStatus.REJECTED)
+        {
+            throw new InvalidOperationException("Cannot upload documents to rejected listings. Create a new expertise review if the listing is resubmitted.");
         }
 
         expertise.DocumentUrl = documentUrl;

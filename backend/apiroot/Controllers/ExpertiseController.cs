@@ -56,17 +56,42 @@ public class ExpertiseController : ControllerBase
     /// <summary>
     /// Get expertise review for a listing
     /// </summary>
+    /// <remarks>
+    /// Expertise details are private and only accessible to:
+    /// - The listing owner
+    /// - Users with ADMIN role
+    /// - Users with EXPERT role
+    /// Public users should view expertise summary via the listing details endpoint.
+    /// </remarks>
     [HttpGet("listing/{listingId}")]
-    [AllowAnonymous]
+    [Authorize] // Changed from AllowAnonymous
     [ProducesResponseType(typeof(ExpertiseResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetExpertiseByListing(Guid listingId, CancellationToken cancellationToken)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
         var expertise = await _expertiseService.GetExpertiseByListingIdAsync(listingId, cancellationToken);
         
         if (expertise == null)
         {
             return NotFound(new { message = "Expertise not found for this listing" });
+        }
+
+        // Verify user has permission to view this expertise
+        // Get the listing to check ownership
+        var listingService = HttpContext.RequestServices.GetRequiredService<IListingService>();
+        var listing = await listingService.GetListingByIdAsync(listingId, userId, cancellationToken);
+        
+        if (listing == null)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, 
+                ErrorResponse.Error("You don't have permission to view this expertise", StatusCodes.Status403Forbidden));
         }
 
         return Ok(expertise);

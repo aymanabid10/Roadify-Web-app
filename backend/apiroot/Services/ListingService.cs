@@ -166,9 +166,60 @@ public class ListingService : IListingService
             return null;
         }
 
-        // Increment view count
+        // Increment view count (public views only, not owner/expert/admin)
         listing.ViewCount++;
         await _context.SaveChangesAsync(cancellationToken);
+
+        return await MapToResponseAsync(listing, cancellationToken);
+    }
+
+    public async Task<ListingResponse?> GetListingByIdAsync(Guid id, string? currentUserId, CancellationToken cancellationToken = default)
+    {
+        var listing = await _context.Listings
+            .Include(l => l.Owner)
+            .Include(l => l.Vehicle)
+            .Include(l => l.Expertise)
+                .ThenInclude(e => e!.Expert)
+            .FirstOrDefaultAsync(l => l.Id == id, cancellationToken);
+
+        if (listing == null)
+        {
+            return null;
+        }
+
+        // Access control: non-published listings only visible to owner, admin, or expert
+        if (listing.Status != ListingStatus.PUBLISHED)
+        {
+            // If no user ID provided (anonymous), deny access to non-published listings
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                return null;
+            }
+
+            // Check if user is owner
+            if (listing.OwnerId != currentUserId)
+            {
+                // Check if user is admin or expert
+                var user = await _userManager.FindByIdAsync(currentUserId);
+                if (user == null)
+                {
+                    return null;
+                }
+
+                var roles = await _userManager.GetRolesAsync(user);
+                if (!roles.Contains("ADMIN") && !roles.Contains("EXPERT"))
+                {
+                    return null; // Not authorized to view non-published listing
+                }
+            }
+        }
+
+        // Increment view count only for non-owner views
+        if (string.IsNullOrEmpty(currentUserId) || listing.OwnerId != currentUserId)
+        {
+            listing.ViewCount++;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
 
         return await MapToResponseAsync(listing, cancellationToken);
     }

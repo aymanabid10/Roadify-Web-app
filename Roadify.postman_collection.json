@@ -415,22 +415,73 @@
                                 },
                                 {
                                     "key": "search",
-                                    "value": "",
+                                    "value": "Toyota",
+                                    "description": "Search in title/description",
                                     "disabled": true
                                 },
                                 {
                                     "key": "minPrice",
-                                    "value": "",
+                                    "value": "10000",
                                     "disabled": true
                                 },
                                 {
                                     "key": "maxPrice",
-                                    "value": "",
+                                    "value": "50000",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "listingTypeString",
+                                    "value": "SALE",
+                                    "description": "Filter by SALE or RENT",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "sortBy",
+                                    "value": "Price",
+                                    "description": "Price, Title, CreatedAt, Status, ViewCount",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "sortOrder",
+                                    "value": "asc",
+                                    "description": "asc or desc",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "make",
+                                    "value": "Toyota",
+                                    "description": "Filter by vehicle brand/make",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "model",
+                                    "value": "Camry",
+                                    "description": "Filter by vehicle model",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "minYear",
+                                    "value": "2020",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "maxYear",
+                                    "value": "2024",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "minMileage",
+                                    "value": "0",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "maxMileage",
+                                    "value": "50000",
                                     "disabled": true
                                 }
                             ]
                         },
-                        "description": "Public endpoint - Returns only PUBLISHED listings. No authentication required."
+                        "description": "Public endpoint - Returns only PUBLISHED listings. No authentication required. NEW: ListingTypeString filter, enhanced sorting options."
                     },
                     "response": []
                 },
@@ -745,7 +796,7 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"listingId\": \"{{listingId}}\",\n    \"technicalReport\": \"Detailed report...\",\n    \"documentUrl\": \"http://example.com/doc.pdf\",\n    \"isApproved\": true\n}",
+                            "raw": "{\n    \"listingId\": \"{{listingId}}\",\n    \"technicalReport\": \"Vehicle inspected on 2026-02-03. Engine condition is excellent, brakes are in good condition, tires show 80% tread remaining. Minor cosmetic scratches on rear bumper.\",\n    \"isApproved\": false,\n    \"conditionScore\": 85,\n    \"estimatedValue\": 23500,\n    \"inspectionDate\": \"2026-02-03T10:00:00Z\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -761,7 +812,8 @@
                                 "api",
                                 "expertise"
                             ]
-                        }
+                        },
+                        "description": "Create expertise review for a listing. Note: Does NOT auto-approve/reject the listing. Use separate /approve or /reject endpoints after creating the expertise."
                     },
                     "response": []
                 },
@@ -822,6 +874,15 @@
                                 "type": "text"
                             }
                         ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"reason\": \"SAFETY_CONCERNS\",\n    \"feedback\": \"The brake pads are worn beyond acceptable limits (less than 2mm remaining). The right front tire has sidewall damage that poses a safety risk. Additionally, the windshield has a crack that exceeds legal limits. These issues must be addressed before the vehicle can be approved for listing.\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
                         "url": {
                             "raw": "{{baseUrl}}/api/expertise/{{expertiseId}}/reject",
                             "host": [
@@ -833,7 +894,46 @@
                                 "{{expertiseId}}",
                                 "reject"
                             ]
-                        }
+                        },
+                        "description": "Reject a listing with detailed reason and feedback. Common reasons: SAFETY_CONCERNS, INCOMPLETE_DOCUMENTATION, INACCURATE_INFORMATION, POOR_CONDITION, LEGAL_ISSUES"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Upload Document",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": [],
+                                    "description": "Upload PDF or image file (inspection report, technical documentation)"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/expertise/{{expertiseId}}/upload-document",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "expertise",
+                                "{{expertiseId}}",
+                                "upload-document"
+                            ]
+                        },
+                        "description": "Upload technical report document (PDF, JPG, PNG). File will be stored via MediaService and DocumentUrl will be updated."
                     },
                     "response": []
                 }
