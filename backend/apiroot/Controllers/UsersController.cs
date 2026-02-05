@@ -8,17 +8,16 @@ namespace apiroot.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "ADMIN")]
-public class AdminController : ControllerBase
+public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
 
-    public AdminController(IUserService userService)
+    public UsersController(IUserService userService)
     {
         _userService = userService;
     }
 
-    [HttpGet("users")]
+    [HttpGet("")]
     public async Task<ActionResult<PaginatedResponse<UserResponseDto>>> GetUsers(
         [FromQuery] UserFilterRequest filterRequest)
     {
@@ -27,7 +26,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("users/{id}")]
+    [HttpGet("{id}")]
     public async Task<ActionResult<UserDetailsDto>> GetUserById(string id)
     {
         var user = await _userService.GetUserByIdAsync(id);
@@ -37,7 +36,8 @@ public class AdminController : ControllerBase
         return Ok(user);
     }
 
-    [HttpPut("users/{id}")]
+    [HttpPut("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserDto updateDto)
     {
         if (!ModelState.IsValid)
@@ -50,7 +50,8 @@ public class AdminController : ControllerBase
         return Ok(new { message = "User updated successfully" });
     }
 
-    [HttpDelete("users/{id}")]
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> DeleteUser(string id)
     {
         var (success, error) = await _userService.SoftDeleteUserAsync(id);
@@ -60,7 +61,8 @@ public class AdminController : ControllerBase
         return Ok(new { message = "User and all related entities deleted successfully" });
     }
 
-    [HttpPost("users/{id}/restore")]
+    [HttpPost("{id}/restore")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> RestoreUser(string id)
     {
         var (success, error) = await _userService.RestoreUserAsync(id);
