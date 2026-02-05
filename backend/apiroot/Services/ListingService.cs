@@ -96,59 +96,6 @@ public class ListingService : IListingService
         return MapToRentListingResponse(listing);
     }
 
-    // Legacy method for backward compatibility
-    [Obsolete("Use CreateSaleListingAsync or CreateRentListingAsync instead")]
-    public async Task<ListingResponse> CreateListingAsync(CreateListingRequest request, string userId, CancellationToken cancellationToken = default)
-    {
-        var vehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == request.VehicleId && v.UserId == userId, cancellationToken);
-
-        if (vehicle == null)
-        {
-            throw new InvalidOperationException("Vehicle not found or does not belong to user");
-        }
-
-        Listing listing;
-        if (request.ListingType == ListingType.SALE)
-        {
-            listing = new SaleListing
-            {
-                Title = request.Title,
-                Description = request.Description,
-                Price = request.Price,
-                Currency = request.Currency,
-                IsPriceNegotiable = request.IsPriceNegotiable,
-                ContactPhone = request.ContactPhone,
-                Location = request.Location,
-                Features = request.Features,
-                VehicleId = request.VehicleId,
-                OwnerId = userId
-            };
-        }
-        else
-        {
-            listing = new RentListing
-            {
-                Title = request.Title,
-                Description = request.Description,
-                Price = request.Price,
-                Currency = request.Currency,
-                IsPriceNegotiable = request.IsPriceNegotiable,
-                ContactPhone = request.ContactPhone,
-                Location = request.Location,
-                Features = request.Features,
-                VehicleId = request.VehicleId,
-                OwnerId = userId,
-                SecurityDeposit = 0
-            };
-        }
-
-        _context.Listings.Add(listing);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return await MapToResponseAsync(listing, cancellationToken);
-    }
-
     public async Task<ListingResponse?> GetListingByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var listing = await _context.Listings
@@ -479,72 +426,6 @@ public class ListingService : IListingService
             listing.Features = request.Features;
     }
 
-    [Obsolete("Use UpdateSaleListingAsync or UpdateRentListingAsync instead")]
-    public async Task<ListingResponse> UpdateListingAsync(Guid id, UpdateListingRequest request, string userId, CancellationToken cancellationToken = default)
-    {
-        var listing = await _context.Listings.FindAsync(new object[] { id }, cancellationToken);
-
-        if (listing == null)
-        {
-            throw new InvalidOperationException("Listing not found");
-        }
-
-        if (listing.OwnerId != userId)
-        {
-            throw new UnauthorizedAccessException("You can only update your own listings");
-        }
-
-        if (listing.Status != ListingStatus.DRAFT)
-        {
-            throw new InvalidOperationException("Can only update listings in DRAFT status");
-        }
-
-        if (!string.IsNullOrEmpty(request.Title))
-        {
-            listing.Title = request.Title;
-        }
-
-        if (request.Description != null)
-        {
-            listing.Description = request.Description;
-        }
-
-        if (request.Price.HasValue)
-        {
-            listing.Price = request.Price.Value;
-        }
-
-        if (request.Currency.HasValue)
-        {
-            listing.Currency = request.Currency.Value;
-        }
-
-        if (request.IsPriceNegotiable.HasValue)
-        {
-            listing.IsPriceNegotiable = request.IsPriceNegotiable.Value;
-        }
-
-        if (request.ContactPhone != null)
-        {
-            listing.ContactPhone = request.ContactPhone;
-        }
-
-        if (!string.IsNullOrEmpty(request.Location))
-        {
-            listing.Location = request.Location;
-        }
-
-        if (request.Features != null)
-        {
-            listing.Features = request.Features;
-        }
-
-        listing.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return await MapToResponseAsync(listing, cancellationToken);
-    }
-
     public async Task DeleteListingAsync(Guid id, string userId, CancellationToken cancellationToken = default)
     {
         var listing = await _context.Listings.FindAsync(new object[] { id }, cancellationToken);
@@ -628,23 +509,6 @@ public class ListingService : IListingService
             // Log but don't fail the operation if email fails
             Console.WriteLine($"Failed to send expert notification emails: {ex.Message}");
         }
-
-        return await MapToResponseAsync(listing, cancellationToken);
-    }
-
-    public async Task<ListingResponse> PublishListingAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var listing = await _context.Listings.FindAsync(new object[] { id }, cancellationToken);
-
-        if (listing == null)
-        {
-            throw new InvalidOperationException("Listing not found");
-        }
-
-        listing.Publish();
-        // Set expiration to 90 days from now
-        listing.ExpirationDate = DateTime.UtcNow.AddDays(90);
-        await _context.SaveChangesAsync(cancellationToken);
 
         return await MapToResponseAsync(listing, cancellationToken);
     }
