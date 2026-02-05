@@ -172,12 +172,14 @@ public class ExpertiseController : ControllerBase
     /// Upload a document to an expertise report (expert who created the expertise only)
     /// </summary>
     [HttpPost("{id}/upload-document")]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ExpertiseResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UploadDocument(Guid id, [FromForm] IFormFile file, CancellationToken cancellationToken)
+    public async Task<IActionResult> UploadDocument(Guid id, [FromForm] ExpertiseDocumentUploadRequestDto dto, CancellationToken cancellationToken)
     {
+        var file = dto.File;
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
         {
