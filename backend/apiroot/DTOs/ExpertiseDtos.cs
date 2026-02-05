@@ -37,5 +37,17 @@ public class ExpertiseResponse
     public int ConditionScore { get; set; }
     public decimal? EstimatedValue { get; set; }
     public DateTime InspectionDate { get; set; }
+    public string? RejectionReason { get; set; }
+    public string? RejectionFeedback { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+public class RejectExpertiseRequest
+{
+    [Required]
+    [MaxLength(200)]
+    public string Reason { get; set; } = string.Empty;
+
+    [MaxLength(1000)]
+    public string? Feedback { get; set; }
 }

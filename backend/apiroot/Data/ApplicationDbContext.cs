@@ -4,7 +4,7 @@ using apiroot.Models;
 
 namespace apiroot.Data;
 
-public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext(options)
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
@@ -44,7 +44,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 )
                 .Metadata.SetValueComparer(
                     new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
-                        (c1, c2) => c1.SequenceEqual(c2),
+                        (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
                         c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
                         c => c.ToList()
                     )
@@ -68,30 +68,53 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
-
-          });
+        });
   
-        // Listing configuration
+        // Listing configuration - Table-Per-Hierarchy (TPH) inheritance
         builder.Entity<Listing>(entity =>
         {
             entity.HasKey(e => e.Id);
             
+            // Configure TPH inheritance with discriminator column
+            entity.HasDiscriminator<string>("ListingType")
+                .HasValue<SaleListing>("SALE")
+                .HasValue<RentListing>("RENT");
+            
             entity.HasOne(e => e.Owner)
                 .WithMany()
                 .HasForeignKey(e => e.OwnerId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
           
             entity.HasOne(e => e.Expertise)
                 .WithOne(e => e.Listing)
                 .HasForeignKey<Expertise>(e => e.ListingId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Configure Features as JSON column
+            entity.Property(e => e.Features)
+                .HasConversion(
+                    v => string.Join(',', v),
+                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
+                );
+
             // Indexes for performance
             entity.HasIndex(e => e.Status);
-            entity.HasIndex(e => e.ListingType);
             entity.HasIndex(e => e.OwnerId);
             entity.HasIndex(e => e.VehicleId);
             entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // SaleListing specific configuration
+        builder.Entity<SaleListing>(entity =>
+        {
+            // No additional configuration needed, inherits from Listing
+        });
+
+        // RentListing specific configuration
+        builder.Entity<RentListing>(entity =>
+        {
+            entity.Property(e => e.SecurityDeposit).IsRequired();
+            entity.Property(e => e.MinimumRentalPeriod).IsRequired();
         });
 
         // Expertise configuration
@@ -102,19 +125,27 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasOne(e => e.Expert)
                 .WithMany()
                 .HasForeignKey(e => e.ExpertId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Message>()
         .HasOne(m => m.Sender)
         .WithMany()
         .HasForeignKey(m => m.SenderId)
-        .OnDelete(DeleteBehavior.Restrict);
+        .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<Message>()
             .HasOne(m => m.Receiver)
             .WithMany()
             .HasForeignKey(m => m.ReceiverId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Global query filters for soft delete (must be configured after all entity configurations)
+        builder.Entity<ApplicationUser>().HasQueryFilter(u => !u.IsDeleted);
+        builder.Entity<Vehicle>().HasQueryFilter(v => !v.IsDeleted);
+        builder.Entity<Listing>().HasQueryFilter(l => !l.IsDeleted);
+        builder.Entity<Expertise>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<Media>().HasQueryFilter(m => !m.IsDeleted);
+        builder.Entity<Message>().HasQueryFilter(m => !m.IsDeleted);
     }
 }

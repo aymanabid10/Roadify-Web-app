@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { RiMapPinLine } from "@remixicon/react";
+import { RiCarLine, RiMapPinLine } from "@remixicon/react";
 
 export default function AuthLayout({
   children,
@@ -11,8 +11,11 @@ export default function AuthLayout({
       {/* Simple header with logo */}
       <header className="border-b">
         <div className="container mx-auto flex h-14 items-center px-4 lg:px-8">
-          <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
-            <RiMapPinLine className="size-6 text-primary" />
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-semibold text-lg"
+          >
+            <RiCarLine className="size-6 text-primary" />
             <span>Roadify</span>
           </Link>
         </div>

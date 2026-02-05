@@ -2,6 +2,8 @@ using apiroot.Data.Mongo.Documents;
 using apiroot.Models;
 using MongoDB.Driver;
 
+namespace apiroot.Data.Mongo.Repositories;
+
 public class ReviewRepository : IReviewRepository
 {
     private readonly IMongoCollection<ReviewDocument> _collection;
@@ -26,7 +28,8 @@ public class ReviewRepository : IReviewRepository
             Rating = review.Rating,
             Comment = review.Comment,
             CreatedAt = DateTime.UtcNow,
-            IsVisible = true
+            IsVisible = true,
+            Id = null
         };
 
         await _collection.InsertOneAsync(doc);
@@ -75,6 +78,28 @@ public class ReviewRepository : IReviewRepository
             .FirstOrDefaultAsync();
 
         return result?.Avg ?? 0.0;
+    }
+
+    public async Task SoftDeleteByUserIdAsync(string userId)
+    {
+        var userGuid = Guid.Parse(userId);
+        var update = Builders<ReviewDocument>.Update
+            .Set(r => r.IsVisible, false);
+
+        await _collection.UpdateManyAsync(
+            r => r.ReviewerId == userGuid || r.TargetUserId == userGuid,
+            update);
+    }
+
+    public async Task RestoreByUserIdAsync(string userId)
+    {
+        var userGuid = Guid.Parse(userId);
+        var update = Builders<ReviewDocument>.Update
+            .Set(r => r.IsVisible, true);
+
+        await _collection.UpdateManyAsync(
+            r => r.ReviewerId == userGuid || r.TargetUserId == userGuid,
+            update);
     }
 
     private static Review MapToModel(ReviewDocument d) => new Review

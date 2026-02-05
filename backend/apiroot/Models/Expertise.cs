@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Identity;
 
 namespace apiroot.Models;
 
@@ -33,14 +32,24 @@ public class Expertise
     [Required]
     public bool IsApproved { get; set; }
 
+    [MaxLength(200)]
+    public string? RejectionReason { get; set; }
+
+    [MaxLength(1000)]
+    public string? RejectionFeedback { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public bool IsDeleted { get; set; } = false;
+
+    public DateTime? DeletedAt { get; set; }
 
     // Navigation properties
     [ForeignKey(nameof(ListingId))]
     public Listing Listing { get; set; } = null!;
 
     [ForeignKey(nameof(ExpertId))]
-    public IdentityUser Expert { get; set; } = null!;
+    public ApplicationUser Expert { get; set; } = null!;
 
     // Methods
     public void Approve()
@@ -49,9 +58,11 @@ public class Expertise
         Listing?.Publish();
     }
 
-    public void Reject()
+    public void Reject(string? reason = null, string? feedback = null)
     {
         IsApproved = false;
+        RejectionReason = reason;
+        RejectionFeedback = feedback;
         Listing?.Reject();
     }
 }

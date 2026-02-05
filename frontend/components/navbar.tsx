@@ -22,7 +22,10 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 items-center justify-between px-4 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-semibold text-lg"
+        >
           <RiCarLine className="size-6 text-primary" />
           <span>Roadify</span>
         </Link>
@@ -60,9 +63,7 @@ export function Navbar() {
                 </Button>
               </Link>
               <Link href="/register">
-                <Button size="sm">
-                  Get started
-                </Button>
+                <Button size="sm">Get started</Button>
               </Link>
             </>
           )}
@@ -119,9 +120,7 @@ export function Navbar() {
                   </Button>
                 </Link>
                 <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full">
-                    Get started
-                  </Button>
+                  <Button className="w-full">Get started</Button>
                 </Link>
               </>
             )}

@@ -251,7 +251,7 @@
             "name": "Listings",
             "item": [
                 {
-                    "name": "Create Listing",
+                    "name": "Create Sale Listing",
                     "event": [
                         {
                             "listen": "test",
@@ -275,7 +275,101 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"vehicleId\": {{vehicleId}},\n    \"title\": \"Example Listing\",\n    \"description\": \"A great car for sale\",\n    \"listingType\": 0\n}",
+                            "raw": "{\n    \"vehicleId\": \"{{vehicleId}}\",\n    \"title\": \"2020 Toyota Camry for Sale\",\n    \"description\": \"Excellent condition, one owner, full service history\",\n    \"price\": 25000,\n    \"currency\": 0,\n    \"isPriceNegotiable\": true,\n    \"contactPhone\": \"+1234567890\",\n    \"location\": \"Los Angeles, CA\",\n    \"features\": [\"Leather Seats\", \"Sunroof\", \"Navigation\", \"Backup Camera\"],\n    \"hasClearTitle\": true,\n    \"financingAvailable\": true,\n    \"tradeInAccepted\": true,\n    \"warrantyInfo\": \"1 year manufacturer warranty remaining\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listing/sale",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listing",
+                                "sale"
+                            ]
+                        },
+                        "description": "Create a new sale listing with sale-specific properties like financing, trade-in, and warranty information."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Rent Listing",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "pm.environment.set(\"listingId\", jsonData.id);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"vehicleId\": \"{{vehicleId}}\",\n    \"title\": \"2022 Tesla Model 3 - Daily Rental\",\n    \"description\": \"Electric sedan available for short-term and long-term rental\",\n    \"price\": 100,\n    \"weeklyRate\": 600,\n    \"monthlyRate\": 2000,\n    \"currency\": 0,\n    \"isPriceNegotiable\": false,\n    \"contactPhone\": \"+1234567890\",\n    \"location\": \"San Francisco, CA\",\n    \"features\": [\"Autopilot\", \"Premium Sound\", \"Full Self-Driving\"],\n    \"securityDeposit\": 500,\n    \"minimumRentalPeriod\": \"1 day\",\n    \"maximumRentalPeriod\": \"30 days\",\n    \"mileageLimitPerDay\": 150,\n    \"insuranceIncluded\": true,\n    \"fuelPolicy\": \"Full to Full\",\n    \"deliveryAvailable\": true,\n    \"deliveryFee\": 50\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listing/rent",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listing",
+                                "rent"
+                            ]
+                        },
+                        "description": "Create a new rent listing with rental-specific properties like rates, security deposit, and rental policies."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Listing (Legacy)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "pm.environment.set(\"listingId\", jsonData.id);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"vehicleId\": {{vehicleId}},\n    \"title\": \"Example Listing\",\n    \"description\": \"A great car for sale\",\n    \"price\": 20000,\n    \"currency\": 0,\n    \"isPriceNegotiable\": true,\n    \"contactPhone\": \"+1234567890\",\n    \"listingType\": 0,\n    \"location\": \"New York, NY\",\n    \"features\": [\"GPS\", \"Air Conditioning\"]\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -291,12 +385,13 @@
                                 "api",
                                 "listing"
                             ]
-                        }
+                        },
+                        "description": "Legacy endpoint - Use /sale or /rent endpoints instead. ListingType: 0=SALE, 1=RENT"
                     },
                     "response": []
                 },
                 {
-                    "name": "Get All Listings",
+                    "name": "Get Public Listings",
                     "request": {
                         "method": "GET",
                         "header": [],
@@ -317,9 +412,154 @@
                                 {
                                     "key": "pageSize",
                                     "value": "10"
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "Toyota",
+                                    "description": "Search in title/description",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "minPrice",
+                                    "value": "10000",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "maxPrice",
+                                    "value": "50000",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "listingTypeString",
+                                    "value": "SALE",
+                                    "description": "Filter by SALE or RENT",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "sortBy",
+                                    "value": "Price",
+                                    "description": "Price, Title, CreatedAt, Status, ViewCount",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "sortOrder",
+                                    "value": "asc",
+                                    "description": "asc or desc",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "make",
+                                    "value": "Toyota",
+                                    "description": "Filter by vehicle brand/make",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "model",
+                                    "value": "Camry",
+                                    "description": "Filter by vehicle model",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "minYear",
+                                    "value": "2020",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "maxYear",
+                                    "value": "2024",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "minMileage",
+                                    "value": "0",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "maxMileage",
+                                    "value": "50000",
+                                    "disabled": true
                                 }
                             ]
-                        }
+                        },
+                        "description": "Public endpoint - Returns only PUBLISHED listings. No authentication required. NEW: ListingTypeString filter, enhanced sorting options."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Listings (Admin/Expert)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listing/admin?page=1&pageSize=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listing",
+                                "admin"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "pageSize",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "1",
+                                    "description": "0=DRAFT, 1=PENDING_REVIEW, 2=PUBLISHED, 3=REJECTED, 4=ARCHIVED",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Admin/Expert endpoint - Returns all listings (DRAFT, PENDING_REVIEW, PUBLISHED, REJECTED). Requires ADMIN or EXPERT role."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get My Listings",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listing/my-listings?page=1&pageSize=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listing",
+                                "my-listings"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "pageSize",
+                                    "value": "10"
+                                }
+                            ]
+                        },
+                        "description": "Returns all listings created by the authenticated user, regardless of status."
                     },
                     "response": []
                 },
@@ -343,7 +583,7 @@
                     "response": []
                 },
                 {
-                    "name": "Update Listing",
+                    "name": "Update Sale Listing",
                     "request": {
                         "method": "PUT",
                         "header": [
@@ -355,7 +595,79 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"title\": \"Updated Title\",\n    \"description\": \"Updated description\"\n}",
+                            "raw": "{\n    \"title\": \"Updated 2020 Toyota Camry\",\n    \"description\": \"Updated description with more details\",\n    \"price\": 24000,\n    \"isPriceNegotiable\": true,\n    \"hasClearTitle\": true,\n    \"financingAvailable\": true,\n    \"tradeInAccepted\": false,\n    \"warrantyInfo\": \"6 months warranty remaining\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listing/sale/{{listingId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listing",
+                                "sale",
+                                "{{listingId}}"
+                            ]
+                        },
+                        "description": "Update a sale listing. Only works for DRAFT status listings and owner only."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Rent Listing",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"title\": \"Updated Tesla Model 3 Rental\",\n    \"description\": \"Updated description\",\n    \"price\": 95,\n    \"weeklyRate\": 550,\n    \"monthlyRate\": 1900,\n    \"securityDeposit\": 450,\n    \"minimumRentalPeriod\": \"2 days\",\n    \"mileageLimitPerDay\": 200,\n    \"insuranceIncluded\": true,\n    \"deliveryFee\": 40\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listing/rent/{{listingId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listing",
+                                "rent",
+                                "{{listingId}}"
+                            ]
+                        },
+                        "description": "Update a rent listing. Only works for DRAFT status listings and owner only."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Listing (Legacy)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"title\": \"Updated Title\",\n    \"description\": \"Updated description\",\n    \"price\": 19500\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -372,7 +684,8 @@
                                 "listing",
                                 "{{listingId}}"
                             ]
-                        }
+                        },
+                        "description": "Legacy endpoint - Use /sale/{id} or /rent/{id} endpoints instead."
                     },
                     "response": []
                 },
@@ -483,7 +796,7 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"listingId\": \"{{listingId}}\",\n    \"technicalReport\": \"Detailed report...\",\n    \"documentUrl\": \"http://example.com/doc.pdf\",\n    \"isApproved\": true\n}",
+                            "raw": "{\n    \"listingId\": \"{{listingId}}\",\n    \"technicalReport\": \"Vehicle inspected on 2026-02-03. Engine condition is excellent, brakes are in good condition, tires show 80% tread remaining. Minor cosmetic scratches on rear bumper.\",\n    \"isApproved\": false,\n    \"conditionScore\": 85,\n    \"estimatedValue\": 23500,\n    \"inspectionDate\": \"2026-02-03T10:00:00Z\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -499,7 +812,8 @@
                                 "api",
                                 "expertise"
                             ]
-                        }
+                        },
+                        "description": "Create expertise review for a listing. Note: Does NOT auto-approve/reject the listing. Use separate /approve or /reject endpoints after creating the expertise."
                     },
                     "response": []
                 },
@@ -560,6 +874,15 @@
                                 "type": "text"
                             }
                         ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"reason\": \"SAFETY_CONCERNS\",\n    \"feedback\": \"The brake pads are worn beyond acceptable limits (less than 2mm remaining). The right front tire has sidewall damage that poses a safety risk. Additionally, the windshield has a crack that exceeds legal limits. These issues must be addressed before the vehicle can be approved for listing.\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
                         "url": {
                             "raw": "{{baseUrl}}/api/expertise/{{expertiseId}}/reject",
                             "host": [
@@ -571,7 +894,46 @@
                                 "{{expertiseId}}",
                                 "reject"
                             ]
-                        }
+                        },
+                        "description": "Reject a listing with detailed reason and feedback. Common reasons: SAFETY_CONCERNS, INCOMPLETE_DOCUMENTATION, INACCURATE_INFORMATION, POOR_CONDITION, LEGAL_ISSUES"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Upload Document",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": [],
+                                    "description": "Upload PDF or image file (inspection report, technical documentation)"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/expertise/{{expertiseId}}/upload-document",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "expertise",
+                                "{{expertiseId}}",
+                                "upload-document"
+                            ]
+                        },
+                        "description": "Upload technical report document (PDF, JPG, PNG). File will be stored via MediaService and DocumentUrl will be updated."
                     },
                     "response": []
                 }
