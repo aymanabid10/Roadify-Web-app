@@ -106,13 +106,26 @@ public class MediaService(ApplicationDbContext context) : IMediaService
     public async Task<(bool Success, string? Url, string? ErrorMessage, int? StatusCode)> UploadMediaAsync(
         IFormFile file, MediaType type, Guid vehicleId, string userId)
     {
-        // Verify vehicle exists and belongs to user
-        var vehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == vehicleId && v.UserId == userId);
-
-        if (vehicle == null)
+        // For REPORT_DOCUMENT type, skip vehicle ownership check (experts upload to other users' vehicles)
+        if (type != MediaType.REPORT_DOCUMENT)
         {
-            return (false, null, "Vehicle not found or access denied", StatusCodes.Status404NotFound);
+            // Verify vehicle exists and belongs to user (for photos and other media)
+            var vehicle = await _context.Vehicles
+                .FirstOrDefaultAsync(v => v.Id == vehicleId && v.UserId == userId);
+
+            if (vehicle == null)
+            {
+                return (false, null, "Vehicle not found or access denied", StatusCodes.Status404NotFound);
+            }
+        }
+        else
+        {
+            // For report documents, just verify vehicle exists (ownership checked in ExpertiseController)
+            var vehicleExists = await _context.Vehicles.AnyAsync(v => v.Id == vehicleId);
+            if (!vehicleExists)
+            {
+                return (false, null, "Vehicle not found", StatusCodes.Status404NotFound);
+            }
         }
 
         // Validate file

@@ -66,13 +66,17 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
-
-          });
+        });
   
-        // Listing configuration
+        // Listing configuration - Table-Per-Hierarchy (TPH) inheritance
         builder.Entity<Listing>(entity =>
         {
             entity.HasKey(e => e.Id);
+            
+            // Configure TPH inheritance with discriminator column
+            entity.HasDiscriminator<string>("ListingType")
+                .HasValue<SaleListing>("SALE")
+                .HasValue<RentListing>("RENT");
             
             entity.HasOne(e => e.Owner)
                 .WithMany()
@@ -84,12 +88,31 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .HasForeignKey<Expertise>(e => e.ListingId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Configure Features as JSON column
+            entity.Property(e => e.Features)
+                .HasConversion(
+                    v => string.Join(',', v),
+                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
+                );
+
             // Indexes for performance
             entity.HasIndex(e => e.Status);
-            entity.HasIndex(e => e.ListingType);
             entity.HasIndex(e => e.OwnerId);
             entity.HasIndex(e => e.VehicleId);
             entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // SaleListing specific configuration
+        builder.Entity<SaleListing>(entity =>
+        {
+            // No additional configuration needed, inherits from Listing
+        });
+
+        // RentListing specific configuration
+        builder.Entity<RentListing>(entity =>
+        {
+            entity.Property(e => e.SecurityDeposit).IsRequired();
+            entity.Property(e => e.MinimumRentalPeriod).IsRequired();
         });
 
         // Expertise configuration

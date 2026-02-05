@@ -3,7 +3,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace apiroot.Models;
 
-public class Listing
+/// <summary>
+/// Abstract base class for all listing types
+/// Uses Table-Per-Hierarchy (TPH) inheritance pattern
+/// </summary>
+public abstract class Listing
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -24,9 +28,6 @@ public class Listing
 
     [MaxLength(20)]
     public string? ContactPhone { get; set; }
-
-    [Required]
-    public ListingType ListingType { get; set; }
 
     [Required]
     [MaxLength(100)]
@@ -65,6 +66,9 @@ public class Listing
     public Vehicle Vehicle { get; set; } = null!;
 
     public Expertise? Expertise { get; set; }
+
+    // Abstract method to get listing type
+    public abstract ListingType GetListingType();
 
     // State machine methods
     public void SubmitForReview()
@@ -106,4 +110,99 @@ public class Listing
         Status = ListingStatus.REJECTED;
         UpdatedAt = DateTime.UtcNow;
     }
+}
+
+/// <summary>
+/// Represents a vehicle listing for sale
+/// </summary>
+public class SaleListing : Listing
+{
+    /// <summary>
+    /// Whether the vehicle has a clear title/ownership
+    /// </summary>
+    public bool HasClearTitle { get; set; } = true;
+
+    /// <summary>
+    /// Whether financing options are available
+    /// </summary>
+    public bool FinancingAvailable { get; set; } = false;
+
+    /// <summary>
+    /// Whether trade-in is accepted
+    /// </summary>
+    public bool TradeInAccepted { get; set; } = false;
+
+    /// <summary>
+    /// Warranty information (e.g., "6 months", "1 year manufacturer warranty")
+    /// </summary>
+    [MaxLength(200)]
+    public string? WarrantyInfo { get; set; }
+
+    public override ListingType GetListingType() => ListingType.SALE;
+}
+
+/// <summary>
+/// Represents a vehicle listing for rent
+/// </summary>
+public class RentListing : Listing
+{
+    /// <summary>
+    /// Daily rental rate (Price field represents this)
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? WeeklyRate { get; set; }
+
+    /// <summary>
+    /// Monthly rental rate
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? MonthlyRate { get; set; }
+
+    /// <summary>
+    /// Security deposit required
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal SecurityDeposit { get; set; }
+
+    /// <summary>
+    /// Minimum rental period (e.g., "1 day", "3 days", "1 week")
+    /// </summary>
+    [Required]
+    [MaxLength(50)]
+    public string MinimumRentalPeriod { get; set; } = "1 day";
+
+    /// <summary>
+    /// Maximum rental period (null = unlimited)
+    /// </summary>
+    [MaxLength(50)]
+    public string? MaximumRentalPeriod { get; set; }
+
+    /// <summary>
+    /// Mileage limit per day (null = unlimited)
+    /// </summary>
+    public int? MileageLimitPerDay { get; set; }
+
+    /// <summary>
+    /// Insurance included in rental price
+    /// </summary>
+    public bool InsuranceIncluded { get; set; } = false;
+
+    /// <summary>
+    /// Fuel policy (e.g., "Full to Full", "Same to Same")
+    /// </summary>
+    [MaxLength(100)]
+    public string? FuelPolicy { get; set; }
+
+    /// <summary>
+    /// Delivery available to renter
+    /// </summary>
+    public bool DeliveryAvailable { get; set; } = false;
+
+    /// <summary>
+    /// Delivery fee if delivery is available
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? DeliveryFee { get; set; }
+
+    public override ListingType GetListingType() => ListingType.RENT;
 }
