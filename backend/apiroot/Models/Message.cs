@@ -12,4 +12,7 @@ public class Message
 
     public IdentityUser Sender { get; set; }
     public IdentityUser Receiver { get; set; }
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
+
 }
