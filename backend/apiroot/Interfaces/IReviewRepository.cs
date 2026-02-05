@@ -9,4 +9,6 @@ public interface IReviewRepository
     Task UpdateAsync(string id, Review review);
     Task DeleteAsync(string id);
     Task<double> GetAverageRatingAsync(Guid userId);
+    Task SoftDeleteByUserIdAsync(string userId);
+    Task RestoreByUserIdAsync(string userId);
 }

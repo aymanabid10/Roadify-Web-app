@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Identity;
 using apiroot.Enums;
 
 namespace apiroot.Models;
@@ -30,7 +29,7 @@ public class Media
 
     // Navigation Properties
     [ForeignKey(nameof(UserId))]
-    public IdentityUser? User { get; set; }
+    public ApplicationUser? User { get; set; }
 
     [ForeignKey(nameof(VehicleId))]
     public Vehicle Vehicle { get; set; } = null!;
