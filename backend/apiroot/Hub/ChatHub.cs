@@ -17,10 +17,9 @@ public class ChatHub : Hub
 
         var message = await _messageService.SendMessageAsync(senderId, dto);
 
-        await Clients.User(dto.ReceiverId.ToString())
-            .SendAsync("ReceiveMessage", message);
-
-        await Clients.Caller
-            .SendAsync("ReceiveMessage", message);
+        await Clients.Users(
+            senderId.ToString(),
+            dto.ReceiverId.ToString()
+        ).SendAsync("ReceiveMessage", message);
     }
 }

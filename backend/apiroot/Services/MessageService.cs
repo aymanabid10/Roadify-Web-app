@@ -1,4 +1,6 @@
 using apiroot.Data;
+using apiroot.DTOs;
+using apiroot.Helpers;
 
 public class MessageService : IMessageService
 {
@@ -31,5 +33,28 @@ public class MessageService : IMessageService
             Content = message.Content,
             SentAt = message.SentAt
         };
+    }
+
+    public async Task<PaginatedResponse<MessageDto>> GetConversationAsync(
+        Guid currentUserId,
+        Guid otherUserId,
+        int page,
+        int pageSize)
+    {
+        var query = _context.Messages
+            .Where(m =>
+                (m.SenderId.ToString() == currentUserId.ToString() && m.ReceiverId.ToString() == otherUserId.ToString()) ||
+                (m.SenderId.ToString() == otherUserId.ToString() && m.ReceiverId.ToString() == currentUserId.ToString()))
+            .OrderByDescending(m => m.SentAt)
+            .Select(m => new MessageDto
+            {
+                Id = m.Id,
+                SenderId = m.SenderId,
+                ReceiverId = m.ReceiverId,
+                Content = m.Content,
+                SentAt = m.SentAt
+            });
+
+        return await PaginationHelper.PaginateAsync(query, page, pageSize);
     }
 }
