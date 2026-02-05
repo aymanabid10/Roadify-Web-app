@@ -221,6 +221,84 @@
                     "response": []
                 },
                 {
+                    "name": "Upload Vehicle Photos",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "photos",
+                                    "type": "file",
+                                    "src": [],
+                                    "description": "Upload vehicle photos (JPG, PNG, WEBP). Max 5MB per photo, max 10 photos per vehicle."
+                                },
+                                {
+                                    "key": "photos",
+                                    "type": "file",
+                                    "src": [],
+                                    "description": "Add multiple photo fields for batch upload"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/vehicle/{{vehicleId}}/photos",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "vehicle",
+                                "{{vehicleId}}",
+                                "photos"
+                            ]
+                        },
+                        "description": "Upload photos for a vehicle. Uses MediaService for file storage. Max 10 photos per vehicle, 5MB per photo. Allowed: .jpg, .jpeg, .png, .webp"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Vehicle Photo",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/vehicle/{{vehicleId}}/photos?photoUrl=/uploads/media/example-photo.jpg",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "vehicle",
+                                "{{vehicleId}}",
+                                "photos"
+                            ],
+                            "query": [
+                                {
+                                    "key": "photoUrl",
+                                    "value": "/uploads/media/example-photo.jpg",
+                                    "description": "URL of the photo to delete (copy from vehicle's photoUrls array)"
+                                }
+                            ]
+                        },
+                        "description": "Delete a specific photo from a vehicle. Only the owner can delete photos."
+                    },
+                    "response": []
+                },
+                {
                     "name": "Delete Vehicle",
                     "request": {
                         "method": "DELETE",
@@ -917,7 +995,7 @@
                                     "key": "file",
                                     "type": "file",
                                     "src": [],
-                                    "description": "Upload PDF or image file (inspection report, technical documentation)"
+                                    "description": "Upload document file (PDF, DOC, DOCX). Max 10MB. Uses MediaService for storage."
                                 }
                             ]
                         },
@@ -933,7 +1011,7 @@
                                 "upload-document"
                             ]
                         },
-                        "description": "Upload technical report document (PDF, JPG, PNG). File will be stored via MediaService and DocumentUrl will be updated."
+                        "description": "Upload technical report document. Uses generic MediaService (MediaType.DOCUMENT). Allowed: .pdf, .doc, .docx. Max 10MB. Only the expert who created the expertise can upload documents."
                     },
                     "response": []
                 }

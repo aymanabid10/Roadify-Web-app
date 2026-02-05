@@ -1,5 +1,6 @@
 using apiroot.Data;
 using apiroot.DTOs;
+using apiroot.Enums;
 using apiroot.Interfaces;
 using apiroot.Models;
 using apiroot.Validators;
@@ -11,19 +12,18 @@ public class VehicleService : IVehicleService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<VehicleService> _logger;
+    private readonly IMediaService _mediaService;
 
     private const int DefaultPage = 1;
     private const int DefaultPageSize = 10;
     private const int MaxPageSize = 100;
     private const int MaxPhotosPerVehicle = 10;
-    private const int MaxPhotoSizeBytes = 5 * 1024 * 1024; // 5MB
-    private static readonly string[] AllowedPhotoExtensions = { ".jpg", ".jpeg", ".png", ".webp" };
-    private static readonly string PhotoUploadPath = Path.Combine("wwwroot", "uploads", "vehicles");
 
-    public VehicleService(ApplicationDbContext context, ILogger<VehicleService> logger)
+    public VehicleService(ApplicationDbContext context, ILogger<VehicleService> logger, IMediaService mediaService)
     {
         _context = context;
         _logger = logger;
+        _mediaService = mediaService;
     }
 
     public Task<object> GetVehicleOptionsAsync()
@@ -255,14 +255,10 @@ public class VehicleService : IVehicleService
             return (false, "Vehicle not found");
         }
 
-        // Delete associated photos from file system
+        // Delete associated photos from file system using MediaService
         foreach (var photoUrl in vehicle.PhotoUrls)
         {
-            var photoPath = GetPhotoPath(photoUrl);
-            if (File.Exists(photoPath))
-            {
-                File.Delete(photoPath);
-            }
+            await _mediaService.DeleteFileAsync(photoUrl);
         }
 
         _context.Vehicles.Remove(vehicle);
@@ -276,76 +272,78 @@ public class VehicleService : IVehicleService
     public async Task<(bool Success, List<string>? PhotoUrls, string? ErrorMessage, int? StatusCode)> UploadVehiclePhotosAsync(
         Guid id, List<IFormFile> photos, string userId)
     {
+        // Authorization: verify user owns the vehicle
         var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
-
         if (vehicle == null)
         {
             return (false, null, "Vehicle not found", 404);
         }
 
+        // Business validation
         if (photos == null || photos.Count == 0)
         {
             return (false, null, "No photos provided", 400);
         }
 
-        // Validate photo count
         if (vehicle.PhotoUrls.Count + photos.Count > MaxPhotosPerVehicle)
         {
             return (false, null, $"Cannot upload more than {MaxPhotosPerVehicle} photos per vehicle. Current: {vehicle.PhotoUrls.Count}", 400);
         }
 
         var uploadedUrls = new List<string>();
-        var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), PhotoUploadPath);
 
-        // Create directory if needed
-        if (!Directory.Exists(uploadsPath))
+        try
         {
-            Directory.CreateDirectory(uploadsPath);
-        }
-
-        foreach (var photo in photos)
-        {
-            // Validate photo
-            var validationError = ValidatePhoto(photo);
-            if (validationError != null)
+            // Delegate file storage to MediaService
+            foreach (var photo in photos)
             {
-                return (false, null, validationError, 400);
+                if (photo.Length == 0) continue;
+
+                var photoUrl = await _mediaService.UploadFileAsync(photo, MediaType.PHOTO);
+                uploadedUrls.Add(photoUrl);
+                vehicle.PhotoUrls.Add(photoUrl);
             }
 
-            // Generate unique filename
-            var extension = Path.GetExtension(photo.FileName).ToLowerInvariant();
-            var fileName = $"{id}_{Guid.NewGuid()}{extension}";
-            var filePath = Path.Combine(uploadsPath, fileName);
+            // Database operations stay in VehicleService
+            vehicle.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
 
-            // Save file
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await photo.CopyToAsync(stream);
-            }
+            _logger.LogInformation("Uploaded {Count} photos for vehicle {VehicleId} by user {UserId}", photos.Count, id, userId);
 
-            var photoUrl = $"/uploads/vehicles/{fileName}";
-            uploadedUrls.Add(photoUrl);
-            vehicle.PhotoUrls.Add(photoUrl);
+            return (true, uploadedUrls, null, null);
         }
-
-        vehicle.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Uploaded {Count} photos for vehicle {VehicleId} by user {UserId}", photos.Count, id, userId);
-
-        return (true, uploadedUrls, null, null);
+        catch (InvalidOperationException ex)
+        {
+            // Clean up uploaded files on error
+            foreach (var url in uploadedUrls)
+            {
+                await _mediaService.DeleteFileAsync(url);
+            }
+            return (false, null, ex.Message, 400);
+        }
+        catch (Exception ex)
+        {
+            // Clean up uploaded files on error
+            foreach (var url in uploadedUrls)
+            {
+                await _mediaService.DeleteFileAsync(url);
+            }
+            _logger.LogError(ex, "Error uploading photos for vehicle {VehicleId}", id);
+            return (false, null, "An error occurred while uploading photos", 500);
+        }
     }
 
     public async Task<(bool Success, string? ErrorMessage, int? StatusCode)> DeleteVehiclePhotoAsync(
         Guid id, string photoUrl, string userId)
     {
+        // Authorization: verify user owns the vehicle
         var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
-
         if (vehicle == null)
         {
             return (false, "Vehicle not found", 404);
         }
 
+        // Business validation
         if (string.IsNullOrWhiteSpace(photoUrl))
         {
             return (false, "Photo URL is required", 400);
@@ -356,13 +354,10 @@ public class VehicleService : IVehicleService
             return (false, "Photo not found for this vehicle", 404);
         }
 
-        // Delete file from file system
-        var photoPath = GetPhotoPath(photoUrl);
-        if (File.Exists(photoPath))
-        {
-            File.Delete(photoPath);
-        }
+        // Delegate file deletion to MediaService
+        await _mediaService.DeleteFileAsync(photoUrl);
 
+        // Database operations stay in VehicleService
         vehicle.PhotoUrls.Remove(photoUrl);
         vehicle.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -403,10 +398,7 @@ public class VehicleService : IVehicleService
             .FirstOrDefaultAsync(v => v.Id == id && v.UserId == userId);
     }
 
-    private static string GetPhotoPath(string photoUrl)
-    {
-        return Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", photoUrl.TrimStart('/'));
-    }
+
 
     private static IQueryable<Vehicle> ApplySorting(IQueryable<Vehicle> query, string sortBy, string sortOrder)
     {
@@ -425,22 +417,5 @@ public class VehicleService : IVehicleService
             _ => isAscending ? query.OrderBy(v => v.CreatedAt) : query.OrderByDescending(v => v.CreatedAt)
         };
     }
-
-    private static string? ValidatePhoto(IFormFile photo)
-    {
-        // Validate extension
-        var extension = Path.GetExtension(photo.FileName).ToLowerInvariant();
-        if (!AllowedPhotoExtensions.Contains(extension))
-        {
-            return $"Invalid file type: {extension}. Allowed: {string.Join(", ", AllowedPhotoExtensions)}";
-        }
-
-        // Validate size
-        if (photo.Length > MaxPhotoSizeBytes)
-        {
-            return $"File {photo.FileName} exceeds maximum size of 5MB";
-        }
-
-        return null;
-    }
 }
+

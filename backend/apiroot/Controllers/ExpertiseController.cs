@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using apiroot.DTOs;
+using apiroot.Enums;
 using apiroot.Interfaces;
 
 namespace apiroot.Controllers;
@@ -179,21 +180,20 @@ public class ExpertiseController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> UploadDocument(Guid id, [FromForm] ExpertiseDocumentUploadRequestDto dto, CancellationToken cancellationToken)
     {
-        var file = dto.File;
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
         }
 
-        if (file == null || file.Length == 0)
+        if (dto.File == null || dto.File.Length == 0)
         {
             return BadRequest(ErrorResponse.Error("No file provided", StatusCodes.Status400BadRequest));
         }
 
         try
         {
-            // First verify the expertise exists and get its vehicle ID
+            // Get expertise and verify ownership
             var context = HttpContext.RequestServices.GetRequiredService<apiroot.Data.ApplicationDbContext>();
             var expertise = await context.Expertises
                 .Include(e => e.Listing)
@@ -211,23 +211,14 @@ public class ExpertiseController : ControllerBase
                     ErrorResponse.Error("You can only upload documents to your own expertise reviews", StatusCodes.Status403Forbidden));
             }
 
-            // Use MediaService to handle the file upload with the listing's vehicle ID
+            // Use generic MediaService for file storage
             var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
-            
-            var (success, url, errorMessage, statusCode) = await mediaService.UploadMediaAsync(
-                file, 
-                Enums.MediaType.REPORT_DOCUMENT, 
-                expertise.Listing.VehicleId, // Use the vehicle from the listing
-                userId);
+            var url = await mediaService.UploadFileAsync(dto.File, MediaType.DOCUMENT);
 
-            if (!success || url == null)
-            {
-                return StatusCode(statusCode ?? StatusCodes.Status500InternalServerError, 
-                    ErrorResponse.Error(errorMessage ?? "Failed to upload document", statusCode ?? StatusCodes.Status500InternalServerError));
-            }
-
+            // Update expertise with document URL
             var result = await _expertiseService.UploadDocumentAsync(id, userId, url, cancellationToken);
             _logger.LogInformation("Expert {ExpertId} uploaded document to expertise {ExpertiseId}", userId, id);
+            
             return Ok(result);
         }
         catch (InvalidOperationException ex)

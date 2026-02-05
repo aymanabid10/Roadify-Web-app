@@ -23,6 +23,8 @@ public interface IVehicleService
     Task<(bool Success, VehicleResponseDto? Vehicle, string? ErrorMessage, int? StatusCode)> CreateVehicleAsync(CreateVehicleDto dto, string userId);
     Task<(bool Success, string? ErrorMessage, int? StatusCode)> UpdateVehicleAsync(Guid id, UpdateVehicleDto dto, string userId);
     Task<(bool Success, string? ErrorMessage)> DeleteVehicleAsync(Guid id, string userId);
-    Task<(bool Success, List<string>? PhotoUrls, string? ErrorMessage, int? StatusCode)> UploadVehiclePhotosAsync(Guid id, List<IFormFile> photos, string userId);
-    Task<(bool Success, string? ErrorMessage, int? StatusCode)> DeleteVehiclePhotoAsync(Guid id, string photoUrl, string userId);
+    
+    // Photo management - uses MediaService internally
+    Task<(bool Success, List<string>? PhotoUrls, string? ErrorMessage, int? StatusCode)> UploadVehiclePhotosAsync(Guid vehicleId, List<IFormFile> photos, string userId);
+    Task<(bool Success, string? ErrorMessage, int? StatusCode)> DeleteVehiclePhotoAsync(Guid vehicleId, string photoUrl, string userId);
 }
