@@ -32,6 +32,12 @@ namespace apiroot.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ReceiverId")
                         .IsRequired()
                         .HasColumnType("text");
@@ -565,23 +571,6 @@ namespace apiroot.Migrations
                     b.ToTable("Vehicles");
                 });
 
-            modelBuilder.Entity("Message", b =>
-                {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "Receiver")
-                        .WithMany()
-                        .HasForeignKey("ReceiverId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "Sender")
-                        .WithMany()
-                        .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Receiver");
-
-                    b.Navigation("Sender");
             modelBuilder.Entity("apiroot.Models.RentListing", b =>
                 {
                     b.HasBaseType("apiroot.Models.Listing");
@@ -641,6 +630,25 @@ namespace apiroot.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.HasDiscriminator().HasValue("SALE");
+                });
+
+            modelBuilder.Entity("Message", b =>
+                {
+                    b.HasOne("apiroot.Models.ApplicationUser", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("apiroot.Models.ApplicationUser", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

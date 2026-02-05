@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+using apiroot.Models;
 
 public class Message
 {
@@ -10,8 +10,8 @@ public class Message
     public string Content { get; set; } = null!;
     public DateTime SentAt { get; set; }
 
-    public IdentityUser Sender { get; set; }
-    public IdentityUser Receiver { get; set; }
+    public ApplicationUser Sender { get; set; } = null!;
+    public ApplicationUser Receiver { get; set; } = null!;
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
 

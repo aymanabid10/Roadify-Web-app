@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -8,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace apiroot.Migrations
 {
     /// <inheritdoc />
-    public partial class Init : Migration
+    public partial class mergeMainToMessages : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -32,6 +31,8 @@ namespace apiroot.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     UserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -65,7 +66,7 @@ namespace apiroot.Migrations
                     IsRevoked = table.Column<bool>(type: "boolean", nullable: false),
                     RevokedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     RevokedByToken = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    RowVersion = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false)
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -89,6 +90,8 @@ namespace apiroot.Migrations
                     PhotoUrls = table.Column<string>(type: "text", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     UserId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
@@ -203,6 +206,35 @@ namespace apiroot.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Messages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    SenderId = table.Column<string>(type: "text", nullable: false),
+                    ReceiverId = table.Column<string>(type: "text", nullable: false),
+                    Content = table.Column<string>(type: "text", nullable: false),
+                    SentAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Messages", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Messages_AspNetUsers_ReceiverId",
+                        column: x => x.ReceiverId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Messages_AspNetUsers_SenderId",
+                        column: x => x.SenderId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Listings",
                 columns: table => new
                 {
@@ -213,9 +245,8 @@ namespace apiroot.Migrations
                     Currency = table.Column<int>(type: "integer", nullable: false),
                     IsPriceNegotiable = table.Column<bool>(type: "boolean", nullable: false),
                     ContactPhone = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
-                    ListingType = table.Column<int>(type: "integer", nullable: false),
                     Location = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Features = table.Column<List<string>>(type: "text[]", nullable: false),
+                    Features = table.Column<string>(type: "text", nullable: false),
                     ExpirationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     VehicleId = table.Column<Guid>(type: "uuid", nullable: false),
@@ -223,7 +254,24 @@ namespace apiroot.Migrations
                     ViewCount = table.Column<int>(type: "integer", nullable: false),
                     TrustScore = table.Column<float>(type: "real", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    ListingType = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: false),
+                    WeeklyRate = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
+                    MonthlyRate = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
+                    SecurityDeposit = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
+                    MinimumRentalPeriod = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    MaximumRentalPeriod = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    MileageLimitPerDay = table.Column<int>(type: "integer", nullable: true),
+                    InsuranceIncluded = table.Column<bool>(type: "boolean", nullable: true),
+                    FuelPolicy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    DeliveryAvailable = table.Column<bool>(type: "boolean", nullable: true),
+                    DeliveryFee = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
+                    HasClearTitle = table.Column<bool>(type: "boolean", nullable: true),
+                    FinancingAvailable = table.Column<bool>(type: "boolean", nullable: true),
+                    TradeInAccepted = table.Column<bool>(type: "boolean", nullable: true),
+                    WarrantyInfo = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -233,7 +281,7 @@ namespace apiroot.Migrations
                         column: x => x.OwnerId,
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Listings_Vehicles_VehicleId",
                         column: x => x.VehicleId,
@@ -285,7 +333,11 @@ namespace apiroot.Migrations
                     EstimatedValue = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
                     InspectionDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     IsApproved = table.Column<bool>(type: "boolean", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    RejectionReason = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    RejectionFeedback = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -295,7 +347,7 @@ namespace apiroot.Migrations
                         column: x => x.ExpertId,
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Expertises_Listings_ListingId",
                         column: x => x.ListingId,
@@ -358,11 +410,6 @@ namespace apiroot.Migrations
                 column: "CreatedAt");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Listings_ListingType",
-                table: "Listings",
-                column: "ListingType");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Listings_OwnerId",
                 table: "Listings",
                 column: "OwnerId");
@@ -391,6 +438,16 @@ namespace apiroot.Migrations
                 name: "IX_Media_VehicleId",
                 table: "Media",
                 column: "VehicleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Messages_ReceiverId",
+                table: "Messages",
+                column: "ReceiverId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Messages_SenderId",
+                table: "Messages",
+                column: "SenderId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_Token",
@@ -428,6 +485,9 @@ namespace apiroot.Migrations
 
             migrationBuilder.DropTable(
                 name: "Media");
+
+            migrationBuilder.DropTable(
+                name: "Messages");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");
