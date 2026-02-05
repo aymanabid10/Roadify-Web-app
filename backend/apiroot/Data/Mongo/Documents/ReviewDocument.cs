@@ -1,4 +1,5 @@
 namespace apiroot.Data.Mongo.Documents;
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -6,7 +7,7 @@ public class ReviewDocument
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
-    public string Id { get; set; }
+    public required string? Id { get; set; }
 
     [BsonRepresentation(BsonType.String)]
     public Guid ReviewerId { get; set; }

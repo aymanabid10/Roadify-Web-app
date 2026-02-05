@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Identity;
 
 namespace apiroot.Models;
 
@@ -41,12 +40,16 @@ public class Expertise
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public bool IsDeleted { get; set; } = false;
+
+    public DateTime? DeletedAt { get; set; }
+
     // Navigation properties
     [ForeignKey(nameof(ListingId))]
     public Listing Listing { get; set; } = null!;
 
     [ForeignKey(nameof(ExpertId))]
-    public IdentityUser Expert { get; set; } = null!;
+    public ApplicationUser Expert { get; set; } = null!;
 
     // Methods
     public void Approve()

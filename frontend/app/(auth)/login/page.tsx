@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { ApiError } from "@/lib/api";
@@ -15,7 +14,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { RiEyeLine, RiEyeOffLine } from "@remixicon/react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const { login } = useAuth();
   
   const [username, setUsername] = useState("");
@@ -52,12 +50,10 @@ export default function LoginPage() {
       toast.success("Welcome back!", {
         description: "You have been successfully logged in.",
       });
-      router.push("/profile");
+      window.location.href = "/";
     } catch (error) {
       if (error instanceof ApiError) {
-        if (error.status === 401) {
-          setErrors({ general: "Invalid username or password" });
-        } else if (error.data.errors) {
+        if (error.data.errors) {
           const fieldErrors: typeof errors = {};
           Object.entries(error.data.errors).forEach(([key, messages]) => {
             const fieldKey = key.toLowerCase() as keyof typeof errors;

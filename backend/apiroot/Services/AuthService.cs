@@ -4,12 +4,13 @@ using apiroot.Data;
 using apiroot.DTOs;
 using apiroot.Interfaces;
 using apiroot.Enums;
+using apiroot.Models;
 
 namespace apiroot.Services;
 
 public class AuthService(
-    UserManager<IdentityUser> userManager,
-    SignInManager<IdentityUser> signInManager,
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager,
     ITokenService tokenService,
     IEmailService emailService,
     IConfiguration configuration,
@@ -32,7 +33,7 @@ public class AuthService(
             throw new InvalidOperationException("Email already registered");
         }
 
-        var user = new IdentityUser
+        var user = new ApplicationUser
         {
             UserName = request.Username,
             Email = request.Email,
@@ -56,10 +57,18 @@ public class AuthService(
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        var user = await userManager.FindByNameAsync(request.Username);
+        var user = await userManager.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.UserName == request.Username, cancellationToken);
+
         if (user == null)
         {
-            throw new UnauthorizedAccessException("Invalid credentials");
+            throw new UnauthorizedAccessException("Invalid username or password");
+        }
+
+        if (user.IsDeleted)
+        {
+            throw new UnauthorizedAccessException("User deleted by an admin.");
         }
 
         var result = await signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
@@ -70,7 +79,7 @@ public class AuthService(
 
         if (!result.Succeeded)
         {
-            throw new UnauthorizedAccessException("Invalid credentials");
+            throw new UnauthorizedAccessException("Invalid username or password");
         }
 
         if (!user.EmailConfirmed)
@@ -271,7 +280,7 @@ public class AuthService(
         logger.LogInformation("Password reset successfully for user {Username}", user.UserName);
     }
 
-    private async Task SendPasswordResetEmailAsync(IdentityUser user, CancellationToken cancellationToken)
+    private async Task SendPasswordResetEmailAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var encodedToken = Uri.EscapeDataString(token);
@@ -292,7 +301,7 @@ public class AuthService(
             cancellationToken);
     }
 
-    private async Task SendEmailConfirmationAsync(IdentityUser user, CancellationToken cancellationToken)
+    private async Task SendEmailConfirmationAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
         var encodedToken = Uri.EscapeDataString(token);

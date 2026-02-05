@@ -7,6 +7,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using apiroot.Data;
+using apiroot.Data.Mongo;
 using apiroot.Enums;
 using apiroot.HealthChecks;
 using apiroot.Interfaces;
@@ -15,6 +16,7 @@ using apiroot.Middleware;
 using apiroot.Services;
 using MongoDB.Driver;
 using apiroot.Data.Mongo.Configuration;
+using apiroot.Data.Mongo.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -110,7 +112,7 @@ builder.Services.Configure<ConnectionStrings>(builder.Configuration.GetSection("
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
         options.Password.RequireDigit = true;
         options.Password.RequireLowercase = true;
@@ -133,13 +135,14 @@ if (string.IsNullOrEmpty(jwtKey) || Encoding.UTF8.GetBytes(jwtKey).Length < 32)
 builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
 
-builder.Services.AddSingleton<IMongoClient>(sp =>
+builder.Services.AddSingleton<IMongoClient>(_ =>
 {
     var settings = builder.Configuration
         .GetSection("MongoDbSettings")
         .Get<MongoDbSettings>();
 
-    return new MongoClient(settings.ConnectionString ?? throw new InvalidOperationException("MongoDB ConnectionString is not configured."));
+    return new MongoClient(settings?.ConnectionString ??
+                           throw new InvalidOperationException("MongoDB ConnectionString is not configured."));
 });
 
 //Add MongoDB context
@@ -180,6 +183,7 @@ builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IListingService, ListingService>();
 builder.Services.AddScoped<IExpertiseService, ExpertiseService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database", HealthStatus.Healthy);
@@ -212,10 +216,12 @@ app.MapHealthChecks("/health");
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
     await SeedRolesAsync(roleManager);
-    await SeedAdminUserAsync(userManager);
+    await SeedAdminUserAsync(userManager, dbContext);
+    await SeedUsersAsync(userManager, dbContext);
 }
 
 app.Run();
@@ -239,32 +245,93 @@ async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
     }
 }
 
-async Task SeedAdminUserAsync(UserManager<IdentityUser> userManager)
+async Task SeedAdminUserAsync(UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext)
 {
     const string adminEmail = "admin@roadify.com";
-    var adminUser = await userManager.FindByEmailAsync(adminEmail);
+    const string adminUsername = "admin";
 
-    if (adminUser == null)
+    var existingUser = await dbContext.Users
+        .IgnoreQueryFilters()
+        .FirstOrDefaultAsync(u => u.Email == adminEmail || u.UserName == adminUsername);
+
+    if (existingUser != null)
     {
-        var admin = new IdentityUser
+        app.Logger.LogInformation(existingUser.IsDeleted
+            ? "Admin user exists but is soft-deleted. Skipping creation."
+            : "Admin user already exists.");
+        return;
+    }
+
+    // Create new admin user
+    var admin = new ApplicationUser
+    {
+        UserName = adminUsername,
+        Email = adminEmail,
+        EmailConfirmed = true
+    };
+
+    var password = builder.Configuration.GetSection("AdminPassword").Value;
+    if (string.IsNullOrEmpty(password))
+    {
+        app.Logger.LogWarning("AdminPassword not configured. Admin user will not be created.");
+        return;
+    }
+
+    var result = await userManager.CreateAsync(admin, password);
+    if (result.Succeeded)
+    {
+        await userManager.AddToRoleAsync(admin, nameof(UserRole.ADMIN));
+        await userManager.AddToRoleAsync(admin, nameof(UserRole.USER));
+        app.Logger.LogInformation("Admin user created successfully.");
+    }
+    else
+    {
+        app.Logger.LogError("Failed to create admin user: {Errors}",
+            string.Join(", ", result.Errors.Select(e => e.Description)));
+    }
+}
+
+async Task SeedUsersAsync(UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext)
+{
+    app.Logger.LogInformation("Seeding 100 users...");
+    for (int i = 1; i <= 100; i++)
+    {
+        var email = $"user{i}@roadify.com";
+        var username = $"user{i}";
+
+        var existingUser = await dbContext.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Email == email || u.UserName == username);
+
+        if (existingUser != null) continue;
+
+        var user = new ApplicationUser
         {
-            UserName = "admin",
-            Email = adminEmail,
+            UserName = username,
+            Email = email,
             EmailConfirmed = true
         };
 
-        var password = builder.Configuration.GetSection("AdminPassword").Value;
-        if (string.IsNullOrEmpty(password))
-        {
-            app.Logger.LogWarning("AdminPassword not configured. Admin user will not be created.");
-            return;
-        }
-
-        var result = await userManager.CreateAsync(admin, password);
+        var result = await userManager.CreateAsync(user, "Password123!");
         if (result.Succeeded)
         {
-            await userManager.AddToRoleAsync(admin, nameof(UserRole.ADMIN));
-            await userManager.AddToRoleAsync(admin, nameof(UserRole.USER));
+            await userManager.AddToRoleAsync(user, nameof(UserRole.USER));
+
+            // Make every 4th user an EXPERT for variety
+            if (i % 4 == 0)
+            {
+                await userManager.AddToRoleAsync(user, nameof(UserRole.EXPERT));
+                app.Logger.LogInformation("Expert user {Username} seeded.", username);
+            }
+            else
+            {
+                app.Logger.LogInformation("Standard user {Username} seeded.", username);
+            }
+        }
+        else
+        {
+            app.Logger.LogError("Failed to seed user {Username}: {Errors}",
+                username, string.Join(", ", result.Errors.Select(e => e.Description)));
         }
     }
 }

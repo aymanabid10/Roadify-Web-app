@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Identity;
 public class ReviewService : IReviewService
 {
     private readonly IReviewRepository _reviewRepository;
-    private readonly UserManager<IdentityUser> _userManager;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public ReviewService(IReviewRepository reviewRepository, UserManager<IdentityUser> userManager)
+    public ReviewService(IReviewRepository reviewRepository, UserManager<ApplicationUser> userManager)
     {
         _reviewRepository = reviewRepository;
         _userManager = userManager;
@@ -60,6 +60,17 @@ public class ReviewService : IReviewService
 
         return await _reviewRepository.GetAverageRatingAsync(userId);
     }
+
+    public async Task SoftDeleteUserReviewsAsync(string userId)
+    {
+        await _reviewRepository.SoftDeleteByUserIdAsync(userId);
+    }
+
+    public async Task RestoreUserReviewsAsync(string userId)
+    {
+        await _reviewRepository.RestoreByUserIdAsync(userId);
+    }
+
     //Private Helpers
 
     private async Task<Review> GetAndValidateOwnerAsync(string id, Guid currentUserId)

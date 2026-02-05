@@ -43,6 +43,10 @@ public class Vehicle
 
     public DateTime? UpdatedAt { get; set; }
 
+    public bool IsDeleted { get; set; } = false;
+
+    public DateTime? DeletedAt { get; set; }
+
     [Required]
     public string UserId { get; set; } = string.Empty;
 }

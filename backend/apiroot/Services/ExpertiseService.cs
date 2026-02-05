@@ -10,13 +10,10 @@ namespace apiroot.Services;
 public class ExpertiseService : IExpertiseService
 {
     private readonly ApplicationDbContext _context;
-    private readonly UserManager<IdentityUser> _userManager;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly IEmailService _emailService;
 
-    public ExpertiseService(
-        ApplicationDbContext context, 
-        UserManager<IdentityUser> userManager,
-        IEmailService emailService)
+    public ExpertiseService(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IEmailService emailService)
     {
         _context = context;
         _userManager = userManager;

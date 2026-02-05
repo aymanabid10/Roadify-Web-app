@@ -1,17 +1,20 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
-import { authApi, AuthResponse, decodeJwt } from "@/lib/api";
+import { authApi, AuthResponse, decodeJwt, extractRoles } from "@/lib/api";
 
 interface User {
   id: string;
   username: string;
+  roles: string[];
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasRole: (role: string) => boolean;
+  isAdmin: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<string>;
   logout: () => Promise<void>;
@@ -37,6 +40,7 @@ function getInitialUser(): User | null {
   return {
     id: payload.nameid,
     username: payload.unique_name,
+    roles: extractRoles(payload),
   };
 }
 
@@ -60,7 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (payload) {
       setUser({ 
         id: payload.nameid,
-        username: payload.unique_name 
+        username: payload.unique_name,
+        roles: extractRoles(payload),
       });
     }
   }, []);
@@ -108,7 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const result = await authApi.validate();
         setUser({ 
           id: payload.nameid,
-          username: result.username 
+          username: result.username,
+          roles: extractRoles(payload),
         });
       } catch {
         // Try to refresh if validation fails
@@ -147,12 +153,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearAuth();
   };
 
+  const hasRole = useCallback((role: string) => {
+    if (!user) return false;
+    return user.roles.some(r => r.toUpperCase() === role.toUpperCase());
+  }, [user]);
+
+  const isAdmin = user?.roles?.some(r => r.toUpperCase() === "ADMIN") ?? false;
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
         isAuthenticated: !!user,
+        hasRole,
+        isAdmin,
         login,
         register,
         logout,

@@ -1,6 +1,7 @@
-using apiroot.Data.Mongo;
 using apiroot.Data.Mongo.Documents;
 using MongoDB.Driver;
+
+namespace apiroot.Data.Mongo;
 
 public class MongoDbContext
 {
@@ -19,7 +20,6 @@ public class MongoDbContext
 
         var client = new MongoClient(connectionString);
         _database = client.GetDatabase(databaseName);
-
     }
 
     public IMongoCollection<ReviewDocument> Reviews =>

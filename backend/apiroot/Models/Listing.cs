@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Identity;
 
 namespace apiroot.Models;
 
@@ -55,9 +54,13 @@ public abstract class Listing
 
     public DateTime? UpdatedAt { get; set; }
 
+    public bool IsDeleted { get; set; } = false;
+
+    public DateTime? DeletedAt { get; set; }
+
     // Navigation properties
     [ForeignKey(nameof(OwnerId))]
-    public IdentityUser Owner { get; set; } = null!;
+    public ApplicationUser Owner { get; set; } = null!;
 
     [ForeignKey(nameof(VehicleId))]
     public Vehicle Vehicle { get; set; } = null!;
