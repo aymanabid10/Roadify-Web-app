@@ -286,26 +286,26 @@ export const adminApi = {
     
     const queryString = params.toString();
     return fetchApi<PaginatedResponse<UserResponseDto>>(
-      `/admin/users${queryString ? `?${queryString}` : ''}`
+      `/users${queryString ? `?${queryString}` : ''}`
     );
   },
 
   getUserById: (userId: string) =>
-    fetchApi<UserDetailsDto>(`/admin/users/${userId}`),
+    fetchApi<UserDetailsDto>(`/users/${userId}`),
 
   updateUser: (userId: string, data: UpdateUserDto) =>
-    fetchApi<MessageResponse>(`/admin/users/${userId}`, {
+    fetchApi<MessageResponse>(`/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   deleteUser: (userId: string) =>
-    fetchApi<MessageResponse>(`/admin/users/${userId}`, {
+    fetchApi<MessageResponse>(`/users/${userId}`, {
       method: 'DELETE',
     }),
 
   restoreUser: (userId: string) =>
-    fetchApi<MessageResponse>(`/admin/users/${userId}/restore`, {
+    fetchApi<MessageResponse>(`/users/${userId}/restore`, {
       method: 'POST',
     }),
 };
