@@ -76,34 +76,6 @@ public class ListingController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new listing (Legacy - use /sale or /rent endpoints instead)
-    /// </summary>
-    [Obsolete("Use CreateSaleListing or CreateRentListing endpoints instead")]
-    [HttpPost]
-    [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> CreateListing([FromBody] CreateListingRequest request, CancellationToken cancellationToken)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        try
-        {
-            var listing = await _listingService.CreateListingAsync(request, userId, cancellationToken);
-            _logger.LogInformation("User {UserId} created listing {ListingId}", userId, listing.Id);
-            return CreatedAtAction(nameof(GetListing), new { id = listing.Id }, listing);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
-        }
-    }
-
-    /// <summary>
     /// Get a listing by ID
     /// </summary>
     /// <remarks>
@@ -254,40 +226,6 @@ public class ListingController : ControllerBase
     }
 
     /// <summary>
-    /// Update a listing (owner only, DRAFT status only) - Legacy endpoint
-    /// </summary>
-    [Obsolete("Use UpdateSaleListing or UpdateRentListing endpoints instead")]
-    [HttpPut("{id}")]
-    [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateListing(Guid id, [FromBody] UpdateListingRequest request, CancellationToken cancellationToken)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-
-        try
-        {
-            var listing = await _listingService.UpdateListingAsync(id, request, userId, cancellationToken);
-            _logger.LogInformation("User {UserId} updated listing {ListingId}", userId, id);
-            return Ok(listing);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, ErrorResponse.Error(ex.Message, StatusCodes.Status403Forbidden));
-        }
-    }
-
-    /// <summary>
     /// Delete a listing (owner only)
     /// </summary>
     [HttpDelete("{id}")]
@@ -348,29 +286,6 @@ public class ListingController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return StatusCode(StatusCodes.Status403Forbidden, ErrorResponse.Error(ex.Message, StatusCodes.Status403Forbidden));
-        }
-    }
-
-    /// <summary>
-    /// Publish a listing (admin only)
-    /// </summary>
-    [HttpPost("{id}/publish")]
-    [Authorize(Roles = "ADMIN")]
-    [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> PublishListing(Guid id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var listing = await _listingService.PublishListingAsync(id, cancellationToken);
-            _logger.LogInformation("Admin published listing {ListingId}", id);
-            return Ok(listing);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
         }
     }
 

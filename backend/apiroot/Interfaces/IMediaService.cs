@@ -1,23 +1,28 @@
-using apiroot.DTOs;
 using apiroot.Enums;
 using Microsoft.AspNetCore.Http;
 
 namespace apiroot.Interfaces;
 
+/// <summary>
+/// Generic file storage service - handles file upload/download/delete operations
+/// Business logic (authorization, database) should be in domain services (VehicleService, ExpertiseService)
+/// </summary>
 public interface IMediaService
 {
-    Task<(bool Success, Guid? MediaId, string? ErrorMessage, int? StatusCode)> CreateMediaAsync(
-        string url, MediaType type, Guid vehicleId, string userId);
+    /// <summary>
+    /// Upload a file to storage and return the URL
+    /// Throws InvalidOperationException if validation fails
+    /// </summary>
+    Task<string> UploadFileAsync(IFormFile file, MediaType type);
 
-    Task<(bool Success, string? ErrorMessage)> SoftDeleteMediaAsync(Guid id, string userId);
+    /// <summary>
+    /// Delete a file from storage by URL
+    /// </summary>
+    Task DeleteFileAsync(string url);
 
-    Task<List<MediaResponseDto>> GetMediaByVehicleIdAsync(Guid vehicleId, string userId, bool includeDeleted = false);
-
-    Task<MediaResponseDto?> GetMediaByIdAsync(Guid id, string userId);
-
-    Task<(bool Success, string? Url, string? ErrorMessage, int? StatusCode)> UploadMediaAsync(
-        IFormFile file, MediaType type, Guid vehicleId, string userId);
-
-    Task<(bool Success, string? ErrorMessage, int? StatusCode)> UpdateMediaAsync(
-        Guid id, UpdateMediaDto dto, string userId);
+    /// <summary>
+    /// Validate file based on type (size, extension, content type)
+    /// </summary>
+    (bool IsValid, string? ErrorMessage) ValidateFile(IFormFile file, MediaType type);
 }
+
