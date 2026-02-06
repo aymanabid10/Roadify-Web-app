@@ -367,6 +367,73 @@ public class VehicleService : IVehicleService
         return (true, null, null);
     }
 
+    public async Task<(bool Success, string? NewPhotoUrl, string? ErrorMessage, int? StatusCode)> UpdateVehiclePhotoAsync(
+        Guid id, string oldPhotoUrl, IFormFile newPhoto, string userId)
+    {
+        // Authorization: verify user owns the vehicle
+        var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
+        if (vehicle == null)
+        {
+            return (false, null, "Vehicle not found", 404);
+        }
+
+        // Business validation
+        if (string.IsNullOrWhiteSpace(oldPhotoUrl))
+        {
+            return (false, null, "Old photo URL is required", 400);
+        }
+
+        if (!vehicle.PhotoUrls.Contains(oldPhotoUrl))
+        {
+            return (false, null, "Old photo not found for this vehicle", 404);
+        }
+
+        if (newPhoto == null || newPhoto.Length == 0)
+        {
+            return (false, null, "New photo file is required", 400);
+        }
+
+        string? newPhotoUrl = null;
+        try
+        {
+            // Upload new photo first
+            newPhotoUrl = await _mediaService.UploadFileAsync(newPhoto, MediaType.PHOTO);
+
+            // Delete old photo
+            await _mediaService.DeleteFileAsync(oldPhotoUrl);
+
+            // Update database - replace old URL with new URL
+            var index = vehicle.PhotoUrls.IndexOf(oldPhotoUrl);
+            vehicle.PhotoUrls[index] = newPhotoUrl;
+            vehicle.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Updated photo from {OldUrl} to {NewUrl} for vehicle {VehicleId} by user {UserId}", 
+                oldPhotoUrl, newPhotoUrl, id, userId);
+
+            return (true, newPhotoUrl, null, null);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Clean up new photo if it was uploaded
+            if (newPhotoUrl != null)
+            {
+                await _mediaService.DeleteFileAsync(newPhotoUrl);
+            }
+            return (false, null, ex.Message, 400);
+        }
+        catch (Exception ex)
+        {
+            // Clean up new photo if it was uploaded
+            if (newPhotoUrl != null)
+            {
+                await _mediaService.DeleteFileAsync(newPhotoUrl);
+            }
+            _logger.LogError(ex, "Error updating photo for vehicle {VehicleId}", id);
+            return (false, null, "An error occurred while updating photo", 500);
+        }
+    }
+
     private async Task<bool> VehicleExistsAsync(Guid id)
     {
         return await _context.Vehicles.AnyAsync(e => e.Id == id);

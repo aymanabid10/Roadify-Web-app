@@ -214,6 +214,135 @@ public class ExpertiseService : IExpertiseService
         return await MapToResponseAsync(expertise, cancellationToken);
     }
 
+    public async Task<ExpertiseResponse> UpdateDocumentAsync(Guid expertiseId, string expertId, string newDocumentUrl, CancellationToken cancellationToken = default)
+    {
+        var expertise = await _context.Expertises
+            .Include(e => e.Listing)
+            .FirstOrDefaultAsync(e => e.Id == expertiseId, cancellationToken);
+
+        if (expertise == null)
+        {
+            throw new InvalidOperationException("Expertise not found");
+        }
+
+        if (expertise.ExpertId != expertId)
+        {
+            throw new UnauthorizedAccessException("You can only update documents for your own expertise reviews");
+        }
+
+        // Prevent document update after listing has been approved or rejected
+        if (expertise.Listing.Status == ListingStatus.PUBLISHED)
+        {
+            throw new InvalidOperationException("Cannot update documents for approved listings. The listing has already been published.");
+        }
+
+        if (expertise.Listing.Status == ListingStatus.REJECTED)
+        {
+            throw new InvalidOperationException("Cannot update documents for rejected listings. Create a new expertise review if the listing is resubmitted.");
+        }
+
+        // Store old document URL for cleanup
+        var oldDocumentUrl = expertise.DocumentUrl;
+
+        // Update with new document URL
+        expertise.DocumentUrl = newDocumentUrl;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return await MapToResponseAsync(expertise, cancellationToken);
+    }
+
+    public async Task<ExpertiseResponse> DeleteDocumentAsync(Guid expertiseId, string expertId, CancellationToken cancellationToken = default)
+    {
+        var expertise = await _context.Expertises
+            .Include(e => e.Listing)
+            .FirstOrDefaultAsync(e => e.Id == expertiseId, cancellationToken);
+
+        if (expertise == null)
+        {
+            throw new InvalidOperationException("Expertise not found");
+        }
+
+        if (expertise.ExpertId != expertId)
+        {
+            throw new UnauthorizedAccessException("You can only delete documents for your own expertise reviews");
+        }
+
+        // Prevent document deletion after listing has been approved or rejected
+        if (expertise.Listing.Status == ListingStatus.PUBLISHED)
+        {
+            throw new InvalidOperationException("Cannot delete documents for approved listings. The listing has already been published.");
+        }
+
+        if (expertise.Listing.Status == ListingStatus.REJECTED)
+        {
+            throw new InvalidOperationException("Cannot delete documents for rejected listings.");
+        }
+
+        if (string.IsNullOrEmpty(expertise.DocumentUrl))
+        {
+            throw new InvalidOperationException("No document to delete");
+        }
+
+        // Clear document URL
+        expertise.DocumentUrl = null;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return await MapToResponseAsync(expertise, cancellationToken);
+    }
+
+    public async Task<ExpertiseResponse> UpdateExpertiseReportAsync(Guid expertiseId, UpdateExpertiseRequest request, string expertId, CancellationToken cancellationToken = default)
+    {
+        var expertise = await _context.Expertises
+            .Include(e => e.Listing)
+            .FirstOrDefaultAsync(e => e.Id == expertiseId, cancellationToken);
+
+        if (expertise == null)
+        {
+            throw new InvalidOperationException("Expertise not found");
+        }
+
+        if (expertise.ExpertId != expertId)
+        {
+            throw new UnauthorizedAccessException("You can only update your own expertise reviews");
+        }
+
+        // Prevent updates after listing has been approved or rejected
+        if (expertise.Listing.Status == ListingStatus.PUBLISHED)
+        {
+            throw new InvalidOperationException("Cannot update approved expertise. The listing has already been published.");
+        }
+
+        if (expertise.Listing.Status == ListingStatus.REJECTED)
+        {
+            throw new InvalidOperationException("Cannot update rejected expertise. Create a new expertise review if the listing is resubmitted.");
+        }
+
+        // Update only provided fields
+        if (request.TechnicalReport != null)
+        {
+            expertise.TechnicalReport = request.TechnicalReport;
+        }
+
+        if (request.ConditionScore.HasValue)
+        {
+            expertise.ConditionScore = request.ConditionScore.Value;
+        }
+
+        if (request.EstimatedValue.HasValue)
+        {
+            expertise.EstimatedValue = request.EstimatedValue;
+        }
+
+        if (request.InspectionDate.HasValue)
+        {
+            expertise.InspectionDate = request.InspectionDate.Value;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return await MapToResponseAsync(expertise, cancellationToken);
+    }
+
     private async Task<ExpertiseResponse> MapToResponseAsync(Expertise expertise, CancellationToken cancellationToken)
     {
         // Ensure navigation properties are loaded

@@ -51,3 +51,16 @@ public class RejectExpertiseRequest
     [MaxLength(1000)]
     public string? Feedback { get; set; }
 }
+
+public class UpdateExpertiseRequest
+{
+    [MaxLength(5000)]
+    public string? TechnicalReport { get; set; }
+
+    [Range(0, 100)]
+    public int? ConditionScore { get; set; }
+
+    public decimal? EstimatedValue { get; set; }
+
+    public DateTime? InspectionDate { get; set; }
+}
