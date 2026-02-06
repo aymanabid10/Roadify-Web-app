@@ -16,11 +16,11 @@ public class MessagesController : ControllerBase
 
     [HttpGet("conversation/{otherUserId}")]
     public async Task<IActionResult> GetConversation(
-        Guid otherUserId,
+        string otherUserId,
         int page = 1,
         int pageSize = 20)
     {
-        var currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
         var result = await _messageService.GetConversationAsync(
             currentUserId,
