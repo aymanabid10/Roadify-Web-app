@@ -311,3 +311,23 @@ export const adminApi = {
 };
 
 export { ApiError };
+
+export interface MessageDto {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  sentAt: string;
+}
+
+export interface SendMessageDto {
+  receiverId: string;
+  content: string;
+}
+
+export const messagesApi = {
+  getConversation: (otherUserId: string, page = 1, pageSize = 20) =>
+    fetchApi<PaginatedResponse<MessageDto>>(
+      `/messages/conversation/${otherUserId}?page=${page}&pageSize=${pageSize}`
+    ),
+};
