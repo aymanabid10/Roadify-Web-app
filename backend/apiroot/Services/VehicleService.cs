@@ -127,9 +127,112 @@ public class VehicleService : IVehicleService
         };
     }
 
-    public async Task<VehicleResponseDto?> GetVehicleByIdAsync(Guid id, string userId)
+    // Admin method to get ALL vehicles (no user filter)
+    public async Task<PaginatedResponse<VehicleResponseDto>> GetAllVehiclesAsync(
+        string? brand,
+        string? model,
+        int? year,
+        string? vehicleType,
+        string? status,
+        string? color,
+        string? search,
+        string sortBy,
+        string sortOrder,
+        int page,
+        int pageSize)
     {
-        var vehicle = await GetVehicleByIdAndUserAsync(id, userId);
+        // Validate pagination parameters
+        if (page < 1) page = DefaultPage;
+        if (pageSize < 1) pageSize = DefaultPageSize;
+        if (pageSize > MaxPageSize) pageSize = MaxPageSize;
+
+        var query = _context.Vehicles.AsQueryable(); // No userId filter for admin
+
+        // Apply filters
+        if (!string.IsNullOrWhiteSpace(brand))
+        {
+            query = query.Where(v => v.Brand.ToLower().Contains(brand.ToLower()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(model))
+        {
+            query = query.Where(v => v.Model.ToLower().Contains(model.ToLower()));
+        }
+
+        if (year.HasValue)
+        {
+            query = query.Where(v => v.Year == year.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(vehicleType))
+        {
+            query = query.Where(v => v.VehicleType == vehicleType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(v => v.Status == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(color))
+        {
+            query = query.Where(v => v.Color != null && v.Color.ToLower().Contains(color.ToLower()));
+        }
+
+        // Global search
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            search = search.ToLower();
+            query = query.Where(v =>
+                v.Brand.ToLower().Contains(search) ||
+                v.Model.ToLower().Contains(search) ||
+                v.RegistrationNumber.ToLower().Contains(search) ||
+                (v.Description != null && v.Description.ToLower().Contains(search)) ||
+                (v.Color != null && v.Color.ToLower().Contains(search))
+            );
+        }
+
+        // Get total count
+        var totalCount = await query.CountAsync();
+
+        // Apply sorting
+        query = ApplySorting(query, sortBy, sortOrder);
+
+        // Apply pagination
+        var vehicles = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new PaginatedResponse<VehicleResponseDto>
+        {
+            Data = vehicles.Select(MapToDto).ToList(),
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            HasPrevious = page > 1,
+            HasNext = page < totalPages
+        };
+    }
+
+    public async Task<VehicleResponseDto?> GetVehicleByIdAsync(Guid id, string? userId)
+    {
+        Vehicle? vehicle;
+        
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Public access - get vehicle without user check
+            vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.Id == id);
+        }
+        else
+        {
+            // User-specific access - verify ownership
+            vehicle = await GetVehicleByIdAndUserAsync(id, userId);
+        }
+        
         return vehicle == null ? null : MapToDto(vehicle);
     }
 

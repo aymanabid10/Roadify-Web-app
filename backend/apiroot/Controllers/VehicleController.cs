@@ -46,20 +46,36 @@ public class VehicleController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
-        var result = await _vehicleService.GetVehiclesAsync(
-            UserId, brand, model, year, vehicleType, status, color, search, sortBy, sortOrder, page, pageSize);
+        // Check if user is admin
+        var isAdmin = User.IsInRole("ADMIN");
+        
+        PaginatedResponse<VehicleResponseDto> result;
+        
+        if (isAdmin)
+        {
+            // Admin can see all vehicles
+            result = await _vehicleService.GetAllVehiclesAsync(
+                brand, model, year, vehicleType, status, color, search, sortBy, sortOrder, page, pageSize);
+        }
+        else
+        {
+            // Regular users only see their own vehicles
+            result = await _vehicleService.GetVehiclesAsync(
+                UserId, brand, model, year, vehicleType, status, color, search, sortBy, sortOrder, page, pageSize);
+        }
 
         return Ok(result);
     }
 
     // GET: api/Vehicle/5
     [HttpGet("{id}")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(VehicleResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<VehicleResponseDto>> GetVehicle(Guid id)
     {
-        var vehicle = await _vehicleService.GetVehicleByIdAsync(id, UserId);
+        // Allow anyone to view vehicle details (no UserId required)
+        var vehicle = await _vehicleService.GetVehicleByIdAsync(id, null);
 
         if (vehicle == null)
         {

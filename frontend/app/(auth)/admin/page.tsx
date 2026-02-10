@@ -186,7 +186,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="container mx-auto py-10 space-y-6">
+    <div className="p-6 md:p-10 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">User Management</h1>

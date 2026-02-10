@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
-import { ApiError } from "@/lib/api";
+import { ApiError, decodeJwt, extractRoles } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,11 +46,34 @@ export default function LoginPage() {
     setErrors({});
     
     try {
+      // Call login to set auth state
       await login(username, password);
-      toast.success("Welcome back!", {
-        description: "You have been successfully logged in.",
-      });
-      window.location.href = "/";
+      
+      // Get the access token that was just set
+      const accessToken = localStorage.getItem("accessToken");
+      if (accessToken) {
+        const payload = decodeJwt(accessToken);
+        if (payload) {
+          const roles = extractRoles(payload);
+          
+          toast.success("Welcome back!", {
+            description: "You have been successfully logged in.",
+          });
+          
+          // Redirect based on user role (priority: ADMIN > EXPERT > USER)
+          if (roles.some((r: string) => r.toUpperCase() === "ADMIN")) {
+            window.location.href = "/admin";
+          } else if (roles.some((r: string) => r.toUpperCase() === "EXPERT")) {
+            window.location.href = "/expert";
+          } else {
+            window.location.href = "/dashboard";
+          }
+          return;
+        }
+      }
+      
+      // Fallback if token decode fails
+      window.location.href = "/dashboard";
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.data.errors) {
