@@ -58,7 +58,9 @@ public class ExpertiseService : IExpertiseService
             IsApproved = request.IsApproved,
             ConditionScore = request.ConditionScore,
             EstimatedValue = request.EstimatedValue,
-            InspectionDate = request.InspectionDate ?? DateTime.UtcNow
+            InspectionDate = request.InspectionDate.HasValue 
+                ? DateTime.SpecifyKind(request.InspectionDate.Value, DateTimeKind.Utc)
+                : DateTime.UtcNow
         };
 
         _context.Expertises.Add(expertise);
@@ -335,7 +337,7 @@ public class ExpertiseService : IExpertiseService
 
         if (request.InspectionDate.HasValue)
         {
-            expertise.InspectionDate = request.InspectionDate.Value;
+            expertise.InspectionDate = DateTime.SpecifyKind(request.InspectionDate.Value, DateTimeKind.Utc);
         }
 
         await _context.SaveChangesAsync(cancellationToken);

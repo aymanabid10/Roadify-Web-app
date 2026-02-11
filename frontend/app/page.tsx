@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,8 +8,6 @@ import {
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
-
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative overflow-hidden border-b bg-gradient-to-b from-primary/5 via-background to-background">
