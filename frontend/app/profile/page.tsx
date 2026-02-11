@@ -4,11 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -74,13 +71,10 @@ export default function ProfilePage() {
     : "U";
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar />
-
-      <main className="flex-1">
-        {/* Header */}
-        <section className="border-b bg-muted/30">
-          <div className="container mx-auto px-4 py-8 lg:px-8">
+    <div className="flex-1">
+      {/* Header */}
+      <section className="border-b bg-muted/30">
+        <div className="container mx-auto px-4 py-8 lg:px-8">
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-4">
                 <Avatar className="size-16 text-lg">
@@ -146,9 +140,6 @@ export default function ProfilePage() {
             </Card>
           </div>
         </section>
-      </main>
-
-      <Footer />
     </div>
   );
 }

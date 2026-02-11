@@ -7,6 +7,7 @@ interface User {
   id: string;
   username: string;
   roles: string[];
+  role?: string; // Primary role for convenience
 }
 
 interface AuthContextType {
@@ -37,10 +38,12 @@ function getInitialUser(): User | null {
   const expiryTime = payload.exp * 1000;
   if (expiryTime < Date.now()) return null;
   
+  const roles = extractRoles(payload);
   return {
     id: payload.nameid,
     username: payload.unique_name,
-    roles: extractRoles(payload),
+    roles: roles,
+    role: roles[0], // Primary role
   };
 }
 
@@ -62,10 +65,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Decode JWT to get user info
     const payload = decodeJwt(response.accessToken);
     if (payload) {
+      const roles = extractRoles(payload);
       setUser({ 
         id: payload.nameid,
         username: payload.unique_name,
-        roles: extractRoles(payload),
+        roles: roles,
+        role: roles[0], // Primary role
       });
     }
   }, []);
@@ -111,10 +116,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Validate current token with backend
       try {
         const result = await authApi.validate();
+        const roles = extractRoles(payload);
         setUser({ 
           id: payload.nameid,
           username: result.username,
-          roles: extractRoles(payload),
+          roles: roles,
+          role: roles[0], // Primary role
         });
       } catch {
         // Try to refresh if validation fails

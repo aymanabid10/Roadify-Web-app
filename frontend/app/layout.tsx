@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Figtree } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { Navbar } from "@/components/navbar";
+import { Sidebar } from "@/components/sidebar";
 import "./globals.css";
 import { ChatWrapper } from "@/components/chat/ChatWrapper";
 
@@ -17,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Roadify - Plan Your Journey",
-  description: "The smart way to plan your road trips and adventures",
+  title: "Roadify - Buy, Sell & Rent Vehicles",
+  description: "The smart way to buy, sell, and rent vehicles online",
 };
 
 export default function RootLayout({
@@ -32,8 +34,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          {children}
-          <ChatWrapper/>
+          <div className="flex min-h-screen flex-col">
+            <Navbar />
+            <div className="flex flex-1">
+              <Sidebar className="hidden md:flex" />
+              <main className="flex-1 overflow-auto">
+                {children}
+                <ChatWrapper/>
+              </main>
+            </div>
+          </div>
         </Providers>
       </body>
     </html>
