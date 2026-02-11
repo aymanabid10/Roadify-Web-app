@@ -16,6 +16,7 @@ using apiroot.Middleware;
 using apiroot.Services;
 using MongoDB.Driver;
 using apiroot.Data.Mongo.Configuration;
+using Microsoft.AspNetCore.SignalR;
 using apiroot.Data.Mongo.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -152,6 +153,10 @@ builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 
+// SignalR and UserIdProvider
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, UserIdProvider>();
+
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -174,6 +179,24 @@ builder.Services.AddAuthentication(options =>
             NameClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
             ClockSkew = TimeSpan.Zero
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/api/hubs/chat"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
+
     });
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -183,6 +206,7 @@ builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IListingService, ListingService>();
 builder.Services.AddScoped<IExpertiseService, ExpertiseService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddHealthChecks()
@@ -210,6 +234,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/api/hubs/chat");
 
 app.MapHealthChecks("/health");
 

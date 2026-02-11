@@ -4,6 +4,7 @@ import { Providers } from "@/components/providers";
 import { Navbar } from "@/components/navbar";
 import { Sidebar } from "@/components/sidebar";
 import "./globals.css";
+import { ChatWrapper } from "@/components/chat/ChatWrapper";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -39,6 +40,7 @@ export default function RootLayout({
               <Sidebar className="hidden md:flex" />
               <main className="flex-1 overflow-auto">
                 {children}
+                <ChatWrapper/>
               </main>
             </div>
           </div>

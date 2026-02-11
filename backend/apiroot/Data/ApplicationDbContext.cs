@@ -12,6 +12,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Listing> Listings { get; set; }
     public DbSet<Expertise> Expertises { get; set; }
 
+    public DbSet<Message> Messages { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -126,11 +128,24 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<Message>()
+        .HasOne(m => m.Sender)
+        .WithMany()
+        .HasForeignKey(m => m.SenderId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Message>()
+            .HasOne(m => m.Receiver)
+            .WithMany()
+            .HasForeignKey(m => m.ReceiverId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Global query filters for soft delete (must be configured after all entity configurations)
         builder.Entity<ApplicationUser>().HasQueryFilter(u => !u.IsDeleted);
         builder.Entity<Vehicle>().HasQueryFilter(v => !v.IsDeleted);
         builder.Entity<Listing>().HasQueryFilter(l => !l.IsDeleted);
         builder.Entity<Expertise>().HasQueryFilter(e => !e.IsDeleted);
         builder.Entity<Media>().HasQueryFilter(m => !m.IsDeleted);
+        builder.Entity<Message>().HasQueryFilter(m => !m.IsDeleted);
     }
 }
