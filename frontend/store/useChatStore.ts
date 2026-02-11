@@ -8,7 +8,6 @@ interface ChatWindowItem {
 interface ChatState {
   openWindows: ChatWindowItem[];
   isContactListOpen: boolean;
-  // Nouvelle propriété pour suivre qui nous a envoyé un message non lu (optionnel)
   unreadNotifications: string[]; 
   openChat: (userId: string, userName: string) => void;
   closeChat: (userId: string) => void;
