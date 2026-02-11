@@ -7,6 +7,7 @@ import { ChatWindow } from "./ChatWindow";
 export function ChatContainer() {
   const openWindows = useChatStore((state) => state.openWindows);
   const closeChat = useChatStore((state) => state.closeChat);
+  const openChat = useChatStore((state) => state.openChat);
   const [token, setToken] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -14,6 +15,21 @@ export function ChatContainer() {
   }, []);
 
   const connection = useSignalR(token);
+
+  React.useEffect(() => {
+    if (!connection) return;
+
+    connection.on("ReceiveMessage", (msg) => {
+      const isWindowOpen = useChatStore.getState().openWindows.some(w => w.userId === msg.senderId);
+      
+      if (!isWindowOpen) {
+        // @ts-ignore
+        useChatStore.getState().notifyNewMessage?.(msg.senderId);
+      }
+    });
+
+    return () => connection.off("ReceiveMessage");
+  }, [connection, openChat]);
 
   if (openWindows.length === 0) return null;
 
