@@ -180,4 +180,28 @@ public class VehicleController : ControllerBase
 
         return Ok(new { message = "Photo deleted successfully" });
     }
+
+    // PUT: api/Vehicle/5/photos
+    [HttpPut("{id}/photos")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> UpdateVehiclePhoto(Guid id, [FromForm] UpdateVehiclePhotoDto dto)
+    {
+        var (success, newPhotoUrl, errorMessage, statusCode) = await _vehicleService.UpdateVehiclePhotoAsync(id, dto.OldPhotoUrl, dto.NewPhoto, UserId);
+
+        if (!success)
+        {
+            return statusCode switch
+            {
+                400 => BadRequest(new { message = errorMessage }),
+                404 => NotFound(new { message = errorMessage }),
+                _ => BadRequest(new { message = errorMessage })
+            };
+        }
+
+        return Ok(new { message = "Photo updated successfully", oldPhotoUrl = dto.OldPhotoUrl, newPhotoUrl });
+    }
 }

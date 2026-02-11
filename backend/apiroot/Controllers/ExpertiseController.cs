@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using apiroot.DTOs;
+using apiroot.Enums;
 using apiroot.Interfaces;
 
 namespace apiroot.Controllers;
@@ -179,21 +180,20 @@ public class ExpertiseController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> UploadDocument(Guid id, [FromForm] ExpertiseDocumentUploadRequestDto dto, CancellationToken cancellationToken)
     {
-        var file = dto.File;
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
         }
 
-        if (file == null || file.Length == 0)
+        if (dto.File == null || dto.File.Length == 0)
         {
             return BadRequest(ErrorResponse.Error("No file provided", StatusCodes.Status400BadRequest));
         }
 
         try
         {
-            // First verify the expertise exists and get its vehicle ID
+            // Get expertise and verify ownership
             var context = HttpContext.RequestServices.GetRequiredService<apiroot.Data.ApplicationDbContext>();
             var expertise = await context.Expertises
                 .Include(e => e.Listing)
@@ -211,24 +211,210 @@ public class ExpertiseController : ControllerBase
                     ErrorResponse.Error("You can only upload documents to your own expertise reviews", StatusCodes.Status403Forbidden));
             }
 
-            // Use MediaService to handle the file upload with the listing's vehicle ID
+            // Use generic MediaService for file storage
             var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
-            
-            var (success, url, errorMessage, statusCode) = await mediaService.UploadMediaAsync(
-                file, 
-                Enums.MediaType.REPORT_DOCUMENT, 
-                expertise.Listing.VehicleId, // Use the vehicle from the listing
-                userId);
+            var url = await mediaService.UploadFileAsync(dto.File, MediaType.DOCUMENT);
 
-            if (!success || url == null)
-            {
-                return StatusCode(statusCode ?? StatusCodes.Status500InternalServerError, 
-                    ErrorResponse.Error(errorMessage ?? "Failed to upload document", statusCode ?? StatusCodes.Status500InternalServerError));
-            }
-
+            // Update expertise with document URL
             var result = await _expertiseService.UploadDocumentAsync(id, userId, url, cancellationToken);
             _logger.LogInformation("Expert {ExpertId} uploaded document to expertise {ExpertiseId}", userId, id);
+            
             return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ErrorResponse.Error(ex.Message, StatusCodes.Status403Forbidden));
+        }
+    }
+
+    /// <summary>
+    /// Update/replace the document for an expertise report (expert who created the expertise only)
+    /// </summary>
+    [HttpPut("{id}/document")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ExpertiseResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateDocument(Guid id, [FromForm] ExpertiseDocumentUploadRequestDto dto, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        if (dto.File == null || dto.File.Length == 0)
+        {
+            return BadRequest(ErrorResponse.Error("No file provided", StatusCodes.Status400BadRequest));
+        }
+
+        string? newDocumentUrl = null;
+        string? oldDocumentUrl = null;
+
+        try
+        {
+            // Get expertise and verify ownership
+            var context = HttpContext.RequestServices.GetRequiredService<apiroot.Data.ApplicationDbContext>();
+            var expertise = await context.Expertises
+                .Include(e => e.Listing)
+                .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+
+            if (expertise == null)
+            {
+                return NotFound(ErrorResponse.Error("Expertise not found", StatusCodes.Status404NotFound));
+            }
+
+            if (expertise.ExpertId != userId)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, 
+                    ErrorResponse.Error("You can only update documents for your own expertise reviews", StatusCodes.Status403Forbidden));
+            }
+
+            oldDocumentUrl = expertise.DocumentUrl;
+
+            // Use generic MediaService for file storage
+            var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
+            
+            // Upload new document first
+            newDocumentUrl = await mediaService.UploadFileAsync(dto.File, MediaType.DOCUMENT);
+
+            // Delete old document if exists
+            if (!string.IsNullOrEmpty(oldDocumentUrl))
+            {
+                await mediaService.DeleteFileAsync(oldDocumentUrl);
+            }
+
+            // Update expertise with new document URL
+            var result = await _expertiseService.UpdateDocumentAsync(id, userId, newDocumentUrl, cancellationToken);
+            _logger.LogInformation("Expert {ExpertId} updated document for expertise {ExpertiseId} from {OldUrl} to {NewUrl}", 
+                userId, id, oldDocumentUrl, newDocumentUrl);
+            
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Clean up new document if it was uploaded
+            if (newDocumentUrl != null)
+            {
+                var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
+                await mediaService.DeleteFileAsync(newDocumentUrl);
+            }
+            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            // Clean up new document if it was uploaded
+            if (newDocumentUrl != null)
+            {
+                var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
+                await mediaService.DeleteFileAsync(newDocumentUrl);
+            }
+            return StatusCode(StatusCodes.Status403Forbidden, ErrorResponse.Error(ex.Message, StatusCodes.Status403Forbidden));
+        }
+        catch (Exception ex)
+        {
+            // Clean up new document if it was uploaded
+            if (newDocumentUrl != null)
+            {
+                var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
+                await mediaService.DeleteFileAsync(newDocumentUrl);
+            }
+            _logger.LogError(ex, "Error updating document for expertise {ExpertiseId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, 
+                ErrorResponse.Error("An error occurred while updating the document", StatusCodes.Status500InternalServerError));
+        }
+    }
+
+    /// <summary>
+    /// Delete an expertise document (expert who created the expertise only)
+    /// </summary>
+    [HttpDelete("{id}/document")]
+    [ProducesResponseType(typeof(ExpertiseResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDocument(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        string? oldDocumentUrl = null;
+
+        try
+        {
+            // Get expertise to store document URL before deletion
+            var context = HttpContext.RequestServices.GetRequiredService<apiroot.Data.ApplicationDbContext>();
+            var expertise = await context.Expertises.FindAsync(new object[] { id }, cancellationToken);
+
+            if (expertise == null)
+            {
+                return NotFound(ErrorResponse.Error("Expertise not found", StatusCodes.Status404NotFound));
+            }
+
+            oldDocumentUrl = expertise.DocumentUrl;
+
+            // Delete from database
+            var result = await _expertiseService.DeleteDocumentAsync(id, userId, cancellationToken);
+
+            // Delete physical file if exists
+            if (!string.IsNullOrEmpty(oldDocumentUrl))
+            {
+                var mediaService = HttpContext.RequestServices.GetRequiredService<IMediaService>();
+                await mediaService.DeleteFileAsync(oldDocumentUrl);
+                _logger.LogInformation("Expert {ExpertId} deleted document {DocumentUrl} for expertise {ExpertiseId}", 
+                    userId, oldDocumentUrl, id);
+            }
+
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ErrorResponse.Error(ex.Message, StatusCodes.Status400BadRequest));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ErrorResponse.Error(ex.Message, StatusCodes.Status403Forbidden));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting document for expertise {ExpertiseId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, 
+                ErrorResponse.Error("An error occurred while deleting the document", StatusCodes.Status500InternalServerError));
+        }
+    }
+
+    /// <summary>
+    /// Update an expertise report (expert who created the expertise only)
+    /// </summary>
+    [HttpPut("{id}")]
+    [ProducesResponseType(typeof(ExpertiseResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateExpertiseReport(Guid id, [FromBody] UpdateExpertiseRequest request, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var expertise = await _expertiseService.UpdateExpertiseReportAsync(id, request, userId, cancellationToken);
+            _logger.LogInformation("Expert {ExpertId} updated expertise report {ExpertiseId}", userId, id);
+            return Ok(expertise);
         }
         catch (InvalidOperationException ex)
         {

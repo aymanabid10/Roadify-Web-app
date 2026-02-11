@@ -1,150 +1,44 @@
-using Microsoft.EntityFrameworkCore;
-using apiroot.Data;
-using apiroot.DTOs;
 using apiroot.Enums;
 using apiroot.Interfaces;
-using apiroot.Models;
 
 namespace apiroot.Services;
 
-public class MediaService(ApplicationDbContext context) : IMediaService
+/// <summary>
+/// Generic file storage service - handles physical file operations only
+/// No business logic, no database operations, no authorization
+/// </summary>
+public class MediaService : IMediaService
 {
-    private readonly ApplicationDbContext _context = context;
-
     // File upload security constants
-    private const int MaxFileSizeBytes = 10 * 1024 * 1024; // 10MB
     private const int MaxImageSizeBytes = 5 * 1024 * 1024; // 5MB for images
     private const int MaxDocumentSizeBytes = 10 * 1024 * 1024; // 10MB for documents
     private static readonly string[] AllowedImageExtensions = { ".jpg", ".jpeg", ".png", ".webp" };
     private static readonly string[] AllowedDocumentExtensions = { ".pdf", ".doc", ".docx" };
     private static readonly string MediaUploadPath = Path.Combine("wwwroot", "uploads", "media");
 
-    public async Task<(bool Success, Guid? MediaId, string? ErrorMessage, int? StatusCode)> CreateMediaAsync(
-        string url, MediaType type, Guid vehicleId, string userId)
+    /// <summary>
+    /// Upload a file to storage and return the URL
+    /// </summary>
+    public async Task<string> UploadFileAsync(IFormFile file, MediaType type)
     {
-        // Verify vehicle exists and belongs to user
-        var vehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == vehicleId && v.UserId == userId);
-
-        if (vehicle == null)
-        {
-            return (false, null, "Vehicle not found or access denied", StatusCodes.Status404NotFound);
-        }
-
-        var media = new Media
-        {
-            Id = Guid.NewGuid(),
-            Url = url,
-            Type = type,
-            VehicleId = vehicleId,
-            UserId = userId,
-            CreatedAt = DateTime.UtcNow,
-            IsDeleted = false
-        };
-
-        _context.Media.Add(media);
-        await _context.SaveChangesAsync();
-
-        return (true, media.Id, null, null);
-    }
-
-    public async Task<(bool Success, string? ErrorMessage)> SoftDeleteMediaAsync(Guid id, string userId)
-    {
-        var media = await _context.Media
-            .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId && !m.IsDeleted);
-
-        if (media == null)
-        {
-            return (false, "Media not found or access denied");
-        }
-
-        media.IsDeleted = true;
-        media.DeletedAt = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-
-        return (true, null);
-    }
-
-    public async Task<List<MediaResponseDto>> GetMediaByVehicleIdAsync(Guid vehicleId, string userId, bool includeDeleted = false)
-    {
-        var query = _context.Media
-            .Include(m => m.Vehicle)
-            .Where(m => m.VehicleId == vehicleId && m.Vehicle.UserId == userId);
-
-        if (!includeDeleted)
-        {
-            query = query.Where(m => !m.IsDeleted);
-        }
-
-        var mediaList = await query.ToListAsync();
-
-        return mediaList.Select(MapToDto).ToList();
-    }
-
-    public async Task<MediaResponseDto?> GetMediaByIdAsync(Guid id, string userId)
-    {
-        var media = await _context.Media
-            .Include(m => m.Vehicle)
-            .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId && !m.IsDeleted);
-
-        return media == null ? null : MapToDto(media);
-    }
-
-    private static MediaResponseDto MapToDto(Media media)
-    {
-        return new MediaResponseDto
-        {
-            Id = media.Id,
-            Url = media.Url,
-            Type = media.Type.ToString(),
-            CreatedAt = media.CreatedAt,
-            VehicleId = media.VehicleId
-        };
-    }
-
-    public async Task<(bool Success, string? Url, string? ErrorMessage, int? StatusCode)> UploadMediaAsync(
-        IFormFile file, MediaType type, Guid vehicleId, string userId)
-    {
-        // For REPORT_DOCUMENT type, skip vehicle ownership check (experts upload to other users' vehicles)
-        if (type != MediaType.REPORT_DOCUMENT)
-        {
-            // Verify vehicle exists and belongs to user (for photos and other media)
-            var vehicle = await _context.Vehicles
-                .FirstOrDefaultAsync(v => v.Id == vehicleId && v.UserId == userId);
-
-            if (vehicle == null)
-            {
-                return (false, null, "Vehicle not found or access denied", StatusCodes.Status404NotFound);
-            }
-        }
-        else
-        {
-            // For report documents, just verify vehicle exists (ownership checked in ExpertiseController)
-            var vehicleExists = await _context.Vehicles.AnyAsync(v => v.Id == vehicleId);
-            if (!vehicleExists)
-            {
-                return (false, null, "Vehicle not found", StatusCodes.Status404NotFound);
-            }
-        }
-
         // Validate file
-        var validationResult = ValidateFile(file, type);
-        if (!validationResult.IsValid)
+        var validation = ValidateFile(file, type);
+        if (!validation.IsValid)
         {
-            return (false, null, validationResult.ErrorMessage, StatusCodes.Status400BadRequest);
+            throw new InvalidOperationException(validation.ErrorMessage ?? "File validation failed");
         }
 
-        // Create upload directory if it doesn't exist
-        if (!Directory.Exists(MediaUploadPath))
+        // Ensure upload directory exists
+        var fullPath = Path.Combine(Directory.GetCurrentDirectory(), MediaUploadPath);
+        if (!Directory.Exists(fullPath))
         {
-            Directory.CreateDirectory(MediaUploadPath);
+            Directory.CreateDirectory(fullPath);
         }
 
         // Generate unique filename
         var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
         var fileName = $"{Guid.NewGuid()}{fileExtension}";
-        var filePath = Path.Combine(MediaUploadPath, fileName);
+        var filePath = Path.Combine(fullPath, fileName);
 
         // Save file to disk
         using (var stream = new FileStream(filePath, FileMode.Create))
@@ -152,54 +46,38 @@ public class MediaService(ApplicationDbContext context) : IMediaService
             await file.CopyToAsync(stream);
         }
 
-        // Generate URL
-        var url = $"/uploads/media/{fileName}";
-
-        // Create media record
-        var media = new Media
-        {
-            Id = Guid.NewGuid(),
-            Url = url,
-            Type = type,
-            VehicleId = vehicleId,
-            UserId = userId,
-            CreatedAt = DateTime.UtcNow,
-            IsDeleted = false
-        };
-
-        _context.Media.Add(media);
-        await _context.SaveChangesAsync();
-
-        return (true, url, null, null);
+        // Return URL
+        return $"/uploads/media/{fileName}";
     }
 
-    public async Task<(bool Success, string? ErrorMessage, int? StatusCode)> UpdateMediaAsync(
-        Guid id, UpdateMediaDto dto, string userId)
+    /// <summary>
+    /// Delete a file from storage
+    /// </summary>
+    public Task DeleteFileAsync(string url)
     {
-        var media = await _context.Media
-            .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId && !m.IsDeleted);
-
-        if (media == null)
+        try
         {
-            return (false, "Media not found or access denied", StatusCodes.Status404NotFound);
+            var fileName = Path.GetFileName(url);
+            var fullPath = Path.Combine(Directory.GetCurrentDirectory(), MediaUploadPath);
+            var filePath = Path.Combine(fullPath, fileName);
+
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+        catch
+        {
+            // Silently fail - file might already be deleted or path might be invalid
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.Url))
-        {
-            media.Url = dto.Url;
-        }
-
-        if (dto.Type.HasValue)
-        {
-            media.Type = dto.Type.Value;
-        }
-
-        await _context.SaveChangesAsync();
-
-        return (true, null, null);
+        return Task.CompletedTask;
     }
 
-    private static (bool IsValid, string? ErrorMessage) ValidateFile(IFormFile file, MediaType type)
+    /// <summary>
+    /// Validate file based on type
+    /// </summary>
+    public (bool IsValid, string? ErrorMessage) ValidateFile(IFormFile file, MediaType type)
     {
         if (file == null || file.Length == 0)
         {
@@ -207,7 +85,7 @@ public class MediaService(ApplicationDbContext context) : IMediaService
         }
 
         // Check file size based on type
-        var maxSize = type == MediaType.REPORT_DOCUMENT ? MaxDocumentSizeBytes : MaxImageSizeBytes;
+        var maxSize = type == MediaType.DOCUMENT ? MaxDocumentSizeBytes : MaxImageSizeBytes;
         if (file.Length > maxSize)
         {
             var maxSizeMb = maxSize / (1024 * 1024);
@@ -216,7 +94,7 @@ public class MediaService(ApplicationDbContext context) : IMediaService
 
         // Check file extension based on type
         var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        var allowedExtensions = type == MediaType.REPORT_DOCUMENT ? AllowedDocumentExtensions : AllowedImageExtensions;
+        var allowedExtensions = type == MediaType.DOCUMENT ? AllowedDocumentExtensions : AllowedImageExtensions;
 
         if (!allowedExtensions.Contains(fileExtension))
         {
@@ -226,7 +104,7 @@ public class MediaService(ApplicationDbContext context) : IMediaService
 
         // Validate content type matches extension
         var contentType = file.ContentType.ToLowerInvariant();
-        var isValidContentType = type == MediaType.REPORT_DOCUMENT
+        var isValidContentType = type == MediaType.DOCUMENT
             ? contentType.StartsWith("application/pdf") || contentType.StartsWith("application/msword") || contentType.StartsWith("application/vnd.openxmlformats")
             : contentType.StartsWith("image/");
 
@@ -238,3 +116,4 @@ public class MediaService(ApplicationDbContext context) : IMediaService
         return (true, null);
     }
 }
+
