@@ -21,6 +21,16 @@ using apiroot.Data.Mongo.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddEnvironmentVariables();
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(10000);
+});
+
 builder.Services.AddControllers();
 
 // Rate limiting configuration
