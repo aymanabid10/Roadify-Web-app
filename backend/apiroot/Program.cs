@@ -18,6 +18,7 @@ using MongoDB.Driver;
 using apiroot.Data.Mongo.Configuration;
 using Microsoft.AspNetCore.SignalR;
 using apiroot.Data.Mongo.Repositories;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -238,7 +239,23 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseStaticFiles(); // Enable serving static files from wwwroot
+var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "media");
+
+// créer le dossier si inexistant
+if (!Directory.Exists(uploadsPath))
+{
+    Directory.CreateDirectory(uploadsPath);
+}
+
+app.UseStaticFiles(
+
+    new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(uploadsPath),
+        RequestPath = "/uploads/media"
+    }
+
+); // Enable serving static files from wwwroot
 
 app.UseCors("AllowNextJs");
 
