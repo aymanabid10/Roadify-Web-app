@@ -485,31 +485,6 @@ public class ListingService : IListingService
             }
         }
 
-        // Notify experts about new listing to review
-        try
-        {
-            var experts = await _userManager.GetUsersInRoleAsync("EXPERT");
-            foreach (var expert in experts.Where(e => !string.IsNullOrEmpty(e.Email)))
-            {
-                var subject = "New listing awaiting review";
-                var body = $@"
-                    <h2>New Listing Review Required</h2>
-                    <p>Dear Expert,</p>
-                    <p>A new listing requires your review:</p>
-                    <p><strong>Title:</strong> {listing.Title}</p>
-                    <p><strong>Type:</strong> {listing.GetListingType()}</p>
-                    <p><strong>Location:</strong> {listing.Location}</p>
-                    <p>Please login to review and approve or reject this listing.</p>
-                ";
-                await _emailService.SendAsync(expert.Email!, subject, body, cancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            // Log but don't fail the operation if email fails
-            Console.WriteLine($"Failed to send expert notification emails: {ex.Message}");
-        }
-
         return await MapToResponseAsync(listing, cancellationToken);
     }
 

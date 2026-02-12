@@ -168,14 +168,20 @@ export function Sidebar({ className }: SidebarProps) {
   const { isAuthenticated, user, hasRole } = useAuth();
   const [mounted, setMounted] = useState(false);
 
-  // Only activate client-side features after mount to avoid hydration mismatch
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // This is intentional for client-side mount detection to avoid hydration mismatch
+    // eslint-disable-next-line
     setMounted(true);
   }, []);
 
-  // Don't show sidebar on auth pages
-  if (pathname?.startsWith("/login") || 
+  // Don't render anything until mounted to avoid hydration mismatch
+  if (!mounted) {
+    return null;
+  }
+
+  // Don't show sidebar on landing page and auth pages
+  if (pathname === "/" ||
+      pathname?.startsWith("/login") || 
       pathname?.startsWith("/register") ||
       pathname?.startsWith("/forgot-password") ||
       pathname?.startsWith("/reset-password") ||
