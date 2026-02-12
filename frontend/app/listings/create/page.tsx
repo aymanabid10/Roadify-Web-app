@@ -227,7 +227,7 @@ export default function CreateListingPage() {
                       {vehicle.year} {vehicle.brand} {vehicle.model}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {vehicle.vehicleType} • {vehicle.color} • {vehicle.mileage.toLocaleString()} km
+                      {vehicle.vehicleType} • {vehicle.color} • {vehicle.mileage ? vehicle.mileage.toLocaleString() : "N/A"} km
                     </div>
                   </Label>
                 </div>

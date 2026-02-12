@@ -123,6 +123,7 @@ export interface ExpertiseResponse {
   rejectionReason: string | null;
   rejectionFeedback: string | null;
   createdAt: string;
+  notes: string | null;
 }
 
 export interface RejectExpertiseRequest {

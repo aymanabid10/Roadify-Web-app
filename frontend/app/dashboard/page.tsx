@@ -208,7 +208,7 @@ export default function UserDashboardPage() {
                       {vehicle.year} {vehicle.brand} {vehicle.model}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {vehicle.vehicleType} • {vehicle.color} • {vehicle.mileage.toLocaleString()} km
+                      {vehicle.vehicleType} • {vehicle.color} • {vehicle.mileage ? vehicle.mileage.toLocaleString() : "N/A"} km
                     </p>
                   </div>
                   <Link href={`/vehicles/${vehicle.id}`}>
